@@ -26,7 +26,7 @@ class LinearArch(nn.Module):
         self.time_mlp   = PositionalEmbedding(emb_size, time_emb)
 
         #! Main Backbone
-        input_size = len(self.input_mlp1) + len(self.input_mlp2) + len(self.time_mlp)
+        input_size = len(self.input_mlp1.layer) + len(self.input_mlp2.layer) + len(self.time_mlp.layer)
         self.joint_mlp = SimpleLinear(input_size, hidden_size, hidden_layers, data_dim)
 
 
@@ -54,4 +54,4 @@ class UNetArch(nn.Module):
 class UNet1DArch(nn.Module):
     #TODO: Ghasideh
     def __init__(self):
-        super().__init__()        
+        super().__init__()
