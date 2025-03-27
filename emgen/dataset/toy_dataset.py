@@ -5,6 +5,23 @@ import torch
 from sklearn.datasets import make_moons
 from torch.utils.data import TensorDataset
 
+class ToyDataset:
+    def __init__(self, name='dino', num=8000):
+        self.name = name
+        self.n = num
+    
+    def get_dataset(self):
+        if self.name == "moons":
+            return moons_dataset(self.n)
+        elif self.name == "dino":
+            return dino_dataset(self.n)
+        elif self.name == "line":
+            return line_dataset(self.n)
+        elif self.name == "circle":
+            return circle_dataset(self.n)
+        else:
+            raise ValueError(f"Unknown dataset: {self.name}")
+        
 
 def moons_dataset(n=8000):
     X, _ = make_moons(n_samples=n, random_state=42, noise=0.03)
@@ -54,14 +71,4 @@ def dino_dataset(n=8000):
     return TensorDataset(torch.from_numpy(X.astype(np.float32)))
 
 
-def get_toy_dataset(name, n=8000):
-    if name == "moons":
-        return moons_dataset(n)
-    elif name == "dino":
-        return dino_dataset(n)
-    elif name == "line":
-        return line_dataset(n)
-    elif name == "circle":
-        return circle_dataset(n)
-    else:
-        raise ValueError(f"Unknown dataset: {name}")
+

@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from emgen_config.train import TrainConfig
+from emgen_config.dataset.dataset import ToyDatasetConfig
 
 @dataclass
 class NoiseSchedulerConfig:
@@ -7,6 +9,7 @@ class NoiseSchedulerConfig:
     beta_start: float = 0.0001
     beta_end: float = 0.02
     beta_schedule: str = "linear"
+    type: str = "ddpm"
 
 #! Diffusion Model Architecture
 @dataclass
@@ -35,16 +38,6 @@ class UNet1DArchConfig:
 class DiffusionModelConfig:
     _target_: str = "emgen.generative_model.diffusion.diffusion_model.DiffusionModel"
     noise_scheduler: NoiseSchedulerConfig = NoiseSchedulerConfig()
-    diffusion_arch: LinearArchConfig | UNetArchConfig | UNet1DArchConfig = LinearArchConfig()
-    diffusion_type: str = "ddpm"
-    time_emb: str = "sinusoidal"
-    input_emb: str = "sinusoidal"
-
-    #! Training
-    train_batch_size: int = 32
-    eval_batch_size: int = 1000
-    num_epochs: int = 200
-    learning_rate: float = 1e-3
-    
-    #! Logging
-    save_images_step: int = 1
+    diffusion_arch: LinearArchConfig = LinearArchConfig() #TODO: add more type annotation here for unet archs
+    dataset: ToyDatasetConfig = ToyDatasetConfig()
+    train: TrainConfig = TrainConfig()

@@ -14,7 +14,8 @@ class NoiseScheduler():
         num_timesteps=1000,
         beta_start=0.0001,
         beta_end=0.02,
-        beta_schedule="linear"
+        beta_schedule="linear",
+        type="ddpm"
     ):
         self.num_timesteps = num_timesteps
 

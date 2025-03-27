@@ -9,13 +9,25 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 #! emgen imports
+from emgen.generative_model.diffusion.noise_scheduler import NoiseScheduler
 from emgen.generative_model.diffusion.diffusion_model_arch import LinearArch
-from emgen_config.generative_model.diffusion_model import DiffusionModelConfig
+from emgen.dataset.toy_dataset import ToyDataset
+from emgen_config.train import TrainConfig
 
 
 class DiffusionModel():
-    def __init__(self, config: DiffusionModelConfig):
-        pass
+    """
+    Train and Sample from the Diffusion Model
+    """
+    def __init__(
+        self,
+        noise_scheduler: NoiseScheduler = NoiseScheduler(),
+        diffusion_arch: LinearArch = LinearArch(),
+        dataset: ToyDataset = ToyDataset(),
+        train: TrainConfig = TrainConfig()
+    ):
+        self.noise_scheduler = noise_scheduler
+        self.diffusion_arch = diffusion_arch
     
     
     def train(self):
