@@ -56,7 +56,8 @@ def circle_dataset(n=8000):
 
 
 def dino_dataset(n=8000):
-    df = pd.read_csv("static/DatasaurusDozen.tsv", sep="\t")
+    #TODO: make it absolute path independent
+    df = pd.read_csv("/home/rashik/workspace/course/emgen/emgen/dataset/DatasaurusDozen.tsv", sep="\t")
     df = df[df["dataset"] == "dino"]
 
     rng = np.random.default_rng(42)

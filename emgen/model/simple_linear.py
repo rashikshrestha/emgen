@@ -36,5 +36,5 @@ class SimpleLinear(nn.Module):
         self.joint_mlp = nn.Sequential(*layers)
 
 
-    def forward(self, x, t):
+    def forward(self, x):
         return self.joint_mlp(x)
