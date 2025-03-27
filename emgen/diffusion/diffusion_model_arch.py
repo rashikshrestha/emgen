@@ -1,8 +1,11 @@
 import torch
 from torch import nn
 
+from emgen.utils.positional_embeddings import PositionalEmbedding
+from emgen.model.simple_linear import SimpleLinear
 
-class Predictor_Linear(nn.Module):
+
+class LinearArch(nn.Module):
     """
     For given xt, it predicts x0 or the noise.
     """
@@ -22,8 +25,9 @@ class Predictor_Linear(nn.Module):
         self.input_mlp2 = PositionalEmbedding(emb_size, input_emb, scale=25.0)
         self.time_mlp   = PositionalEmbedding(emb_size, time_emb)
 
-        #! Main Backbome
-        self.joint_mlp = nn.Sequential(*layers)
+        #! Main Backbone
+        input_size = len(self.input_mlp1) + len(self.input_mlp2) + len(self.time_mlp)
+        self.joint_mlp = SimpleLinear(input_size, hidden_size, hidden_layers, data_dim)
 
 
     def forward(self, x, t):
@@ -39,3 +43,15 @@ class Predictor_Linear(nn.Module):
         x = self.joint_mlp(x)
         
         return x
+   
+ 
+class UNetArch(nn.Module):
+    #TODO: Ghasideh
+    def __init__(self):
+        super().__init__()
+
+
+class UNet1DArch(nn.Module):
+    #TODO: Ghasideh
+    def __init__(self):
+        super().__init__()        
