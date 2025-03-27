@@ -7,20 +7,10 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
-from dataclasses import dataclass
 
 #! emgen imports
-from emgen.diffusion.diffusion_model_arch import LinearArch
-
-@dataclass
-class DiffusionModelConfig:
-    experiment_name: str = "base"
-    timesteps: int = 1000
-    beta_start: float = 0.0001
-    beta_end: float = 0.02
-    beta_schedule: str = "linear"
-    model_arch: str = "linear"
-    diffusion_type: str = "ddpm"
+from emgen.generative_model.diffusion.diffusion_model_arch import LinearArch
+from emgen_config.generative_model.diffusion_model import DiffusionModelConfig
 
 
 class DiffusionModel():
