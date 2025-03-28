@@ -1,33 +1,38 @@
+import os
 import numpy as np
 import pandas as pd
 import torch
-
+from torch.utils.data import Dataset
 from sklearn.datasets import make_moons
-from torch.utils.data import TensorDataset
 
-class ToyDataset:
+
+class ToyDataset(Dataset):
     def __init__(self, name='dino', num=8000):
-        self.name = name
-        self.n = num
-    
-    def get_dataset(self):
-        if self.name == "moons":
-            return moons_dataset(self.n)
-        elif self.name == "dino":
-            return dino_dataset(self.n)
-        elif self.name == "line":
-            return line_dataset(self.n)
-        elif self.name == "circle":
-            return circle_dataset(self.n)
+        if name == "moons":
+            self.data = moons_dataset(num)
+        elif name == "dino":
+            self.data = dino_dataset(num)
+        elif name == "line":
+            self.data = line_dataset(num)
+        elif name == "circle":
+            self.data = circle_dataset(num)
         else:
             raise ValueError(f"Unknown dataset: {self.name}")
-        
 
+ 
+    def __len__(self):
+        return self.data.shape[0]
+
+
+    def __getitem__(self, idx):
+        return self.data[idx]
+    
+        
 def moons_dataset(n=8000):
     X, _ = make_moons(n_samples=n, random_state=42, noise=0.03)
     X[:, 0] = (X[:, 0] + 0.3) * 2 - 1
     X[:, 1] = (X[:, 1] + 0.3) * 3 - 1
-    return TensorDataset(torch.from_numpy(X.astype(np.float32)))
+    return torch.from_numpy(X.astype(np.float32))
 
 
 def line_dataset(n=8000):
@@ -36,7 +41,7 @@ def line_dataset(n=8000):
     y = rng.uniform(-1, 1, n)
     X = np.stack((x, y), axis=1)
     X *= 4
-    return TensorDataset(torch.from_numpy(X.astype(np.float32)))
+    return torch.from_numpy(X.astype(np.float32))
 
 
 def circle_dataset(n=8000):
@@ -52,12 +57,13 @@ def circle_dataset(n=8000):
     y += r * np.sin(theta)
     X = np.stack((x, y), axis=1)
     X *= 3
-    return TensorDataset(torch.from_numpy(X.astype(np.float32)))
+    return torch.from_numpy(X.astype(np.float32))
 
 
 def dino_dataset(n=8000):
-    #TODO: make it absolute path independent
-    df = pd.read_csv("/home/rashik/workspace/course/emgen/emgen/dataset/DatasaurusDozen.tsv", sep="\t")
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(current_dir, "DatasaurusDozen.tsv")
+    df = pd.read_csv(csv_path, sep="\t")
     df = df[df["dataset"] == "dino"]
 
     rng = np.random.default_rng(42)
@@ -69,7 +75,4 @@ def dino_dataset(n=8000):
     x = (x/54 - 1) * 4
     y = (y/48 - 1) * 4
     X = np.stack((x, y), axis=1)
-    return TensorDataset(torch.from_numpy(X.astype(np.float32)))
-
-
-
+    return torch.from_numpy(X.astype(np.float32))

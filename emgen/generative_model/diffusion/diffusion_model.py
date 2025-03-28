@@ -29,21 +29,23 @@ class DiffusionModel():
         dataset: ToyDataset = ToyDataset(),
         train: TrainConfig = TrainConfig()
     ):
+        #! Inputs
         self.noise_scheduler = noise_scheduler
         self.diffusion_arch = diffusion_arch
-        self.dataset = dataset.get_dataset()
         self.train_config = train
         
-        self.optimizer = torch.optim.AdamW(
-            diffusion_arch.parameters(),
-            lr=self.train_config.learning_rate,
-        )
-        
+        #! DataLoader 
         self.train_loader = DataLoader(
-            self.dataset,
+            dataset,
             batch_size=self.train_config.train_batch_size,
             shuffle=True,
             drop_last=True
+        )
+        
+        #! Optimizer
+        self.optimizer = torch.optim.AdamW(
+            diffusion_arch.parameters(),
+            lr=self.train_config.learning_rate,
         )
         
         self.frames = []
@@ -55,15 +57,18 @@ class DiffusionModel():
         
         for epoch in tqdm(range(self.train_config.num_epochs)):
             for batch in self.train_loader:
-                # batch is a (32,2) tensor wrapped by list. why wrapped?
-                batch = batch[0]
+                #! Sample Random Noise
                 noise = torch.randn(batch.shape)
+                
+                #! Sample random timesteps
                 timesteps = torch.randint(
                     0, self.noise_scheduler.num_timesteps, (batch.shape[0],)
                 ).long()
+                
+                #! Add noise to the batch
                 noisy = self.noise_scheduler.add_noise(batch, noise, timesteps)
                
-                #! Use model 
+                #! Use model to predict noise
                 noise_pred = self.diffusion_arch(noisy, timesteps)
                 
                 #! Calculate Loss
