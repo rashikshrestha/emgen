@@ -9,7 +9,7 @@ class NoiseSchedulerConfig:
     beta_start: float = 0.0001
     beta_end: float = 0.02
     beta_schedule: str = "linear"
-    type: str = "ddpm"
+    diffusion_type: str = "ddpm"
 
 #! Diffusion Model Architecture
 @dataclass
