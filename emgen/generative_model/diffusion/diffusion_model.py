@@ -8,8 +8,11 @@ from tqdm.auto import tqdm
 import numpy as np
 import logging
 import matplotlib.pyplot as plt
+from pathlib import Path
+from hydra.core.hydra_config import HydraConfig
 
 #! emgen imports
+from emgen.utils.visualization import plot_2d_intermediate_samples
 from emgen.generative_model.diffusion.noise_scheduler import NoiseScheduler
 from emgen.generative_model.diffusion.diffusion_model_arch import LinearArch
 from emgen.dataset.toy_dataset import ToyDataset
@@ -34,6 +37,9 @@ class DiffusionModel():
         self.diffusion_arch = diffusion_arch
         self.train_config = train
         
+        self.out_dir = Path(HydraConfig.get().runtime.output_dir)
+        self.data_dim = dataset[0].shape
+
         #! DataLoader 
         self.train_loader = DataLoader(
             dataset,
@@ -81,32 +87,37 @@ class DiffusionModel():
                 self.optimizer.zero_grad()
                 
             if epoch % self.train_config.save_images_step == 0 or epoch == self.train_config.num_epochs - 1:
-                print(f"LOSS: {loss}")
-                self.sample()
-                
-        print("Saving images...")
-        imgdir = f"images"
-        os.makedirs(imgdir, exist_ok=True)
-        frames = np.stack(self.frames)
-        xmin, xmax = -6, 6
-        ymin, ymax = -6, 6
-        for i, frame in enumerate(frames):
-            plt.figure(figsize=(10, 10))
-            plt.scatter(frame[:, 0], frame[:, 1])
-            plt.xlim(xmin, xmax)
-            plt.ylim(ymin, ymax)
-            plt.savefig(f"{imgdir}/{i:04}.png")
-            plt.close()
+                sample_out = self.sample()
+                sample_out_dir = self.out_dir/f"train_epoch_{epoch:02d}"
+                sample_out_dir.mkdir(parents=True, exist_ok=True)
+                plot_2d_intermediate_samples(
+                    sample_out['intermediate_samples'], 
+                    sample_out_dir, 
+                    self.train_config.no_of_diff_samples_to_save,     
+                )
+                torch.save(self.diffusion_arch.state_dict(), self.out_dir/f"train_epoch_{epoch:02d}/diffusion_arch.pth")
 
  
-    def sample(self):
+    def sample(self, get_intermediate_samples=True):
         log.info("Sampling from the Diffusion Model")
         self.diffusion_arch.eval()
-        sample = torch.randn(self.train_config.eval_batch_size, 2)
+        #! Accumulators
+        output = {}
+        intermediate_samples = []
+        #! Sample random noise
+        sample = torch.randn(torch.Size([self.train_config.eval_batch_size, *self.data_dim]))
+        if get_intermediate_samples: intermediate_samples.append(sample.numpy())
+        #! List the timesteps in reverse order for sampling
         timesteps = list(range(len(self.noise_scheduler)))[::-1]
+        #! Reverse diffusion process
         for i, t in enumerate(tqdm(timesteps)):
             t = torch.from_numpy(np.repeat(t, self.train_config.eval_batch_size)).long()
             with torch.no_grad():
                 residual = self.diffusion_arch(sample, t)
             sample = self.noise_scheduler.step(residual, t[0], sample)
-        self.frames.append(sample.numpy())
+            if get_intermediate_samples: intermediate_samples.append(sample.numpy())  # Store intermediate frames for visualization
+        if get_intermediate_samples: output['intermediate_samples'] = np.array(intermediate_samples)
+        #! Final sample
+        generated_sample = sample.numpy()
+        output['generated_sample'] = generated_sample
+        return output
