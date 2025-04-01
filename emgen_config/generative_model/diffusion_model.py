@@ -21,6 +21,7 @@ class LinearArchConfig:
     time_emb: str = "sinusoidal"
     hidden_size: int = 128
     hidden_layers: int = 3
+    weights: str = None
     
     
 @dataclass

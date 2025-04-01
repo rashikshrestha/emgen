@@ -1,9 +1,11 @@
 import torch
 from torch import nn
+import logging
 
 from emgen.utils.positional_embeddings import PositionalEmbedding
 from emgen.model.simple_linear import SimpleLinear
 
+log = logging.getLogger(__name__)
 
 class LinearArch(nn.Module):
     """
@@ -16,7 +18,8 @@ class LinearArch(nn.Module):
         input_emb: str = "sinusoidal",
         time_emb: str = "sinusoidal",
         hidden_size: int = 128, 
-        hidden_layers: int = 3, 
+        hidden_layers: int = 3,
+        weights: str = None
     ):
         super().__init__()
 
@@ -28,6 +31,12 @@ class LinearArch(nn.Module):
         #! Main Backbone
         input_size = len(self.input_mlp1.layer) + len(self.input_mlp2.layer) + len(self.time_mlp.layer)
         self.joint_mlp = SimpleLinear(input_size, hidden_size, hidden_layers, data_dim)
+        
+        if weights is not None:
+            state_dict = torch.load(weights, map_location='cpu')
+            self.load_state_dict(state_dict)
+            log.info(f"Loaded weights from {weights} into LinearArch")
+            input()
 
 
     def forward(self, x, t):

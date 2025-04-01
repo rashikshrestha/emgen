@@ -95,6 +95,7 @@ class DiffusionModel():
                     sample_out_dir, 
                     self.train_config.no_of_diff_samples_to_save,     
                 )
+                torch.save(self.diffusion_arch.state_dict(), self.out_dir/f"train_epoch_{epoch:02d}/diffusion_arch.pth")
 
  
     def sample(self, get_intermediate_samples=True):
