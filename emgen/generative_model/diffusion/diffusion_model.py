@@ -90,8 +90,11 @@ class DiffusionModel():
                 sample_out = self.sample()
                 sample_out_dir = self.out_dir/f"train_epoch_{epoch:02d}"
                 sample_out_dir.mkdir(parents=True, exist_ok=True)
-                #TODO: add skip factor for plotting intermediate samples
-                plot_2d_intermediate_samples(sample_out['intermediate_samples'], sample_out_dir)
+                plot_2d_intermediate_samples(
+                    sample_out['intermediate_samples'], 
+                    sample_out_dir, 
+                    self.train_config.no_of_diff_samples_to_save,     
+                )
 
  
     def sample(self, get_intermediate_samples=True):
