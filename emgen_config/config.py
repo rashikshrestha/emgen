@@ -6,6 +6,7 @@ from emgen_config.generative_model.diffusion_model import DiffusionModelConfig
 @dataclass
 class EmGenConfig:
     experiment_name: str = "base"
+    device: str = "cuda"
     generative_model: DiffusionModelConfig = DiffusionModelConfig()
     
 cs = ConfigStore.instance()

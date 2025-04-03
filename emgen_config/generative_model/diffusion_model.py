@@ -15,15 +15,16 @@ class NoiseSchedulerConfig:
 @dataclass
 class LinearArchConfig:
     _target_: str = "emgen.generative_model.diffusion.diffusion_model_arch.LinearArch"
+    device: str = "${device}"
     data_dim: int = 2
     emb_size: int = 128
     input_emb: str = "sinusoidal"
     time_emb: str = "sinusoidal"
     hidden_size: int = 128
     hidden_layers: int = 3
-    weights: str = None
+    weights: str | None = None
     
-    
+ 
 @dataclass
 class UNetArchConfig:
     _target_: str = "emgen.generative_model.diffusion.diffusion_model_arch.UNetArch"
@@ -38,6 +39,7 @@ class UNet1DArchConfig:
 @dataclass
 class DiffusionModelConfig:
     _target_: str = "emgen.generative_model.diffusion.diffusion_model.DiffusionModel"
+    device: str = "${device}"
     noise_scheduler: NoiseSchedulerConfig = NoiseSchedulerConfig()
     diffusion_arch: LinearArchConfig = LinearArchConfig() #TODO: add more type annotation here for unet archs
     dataset: ToyDatasetConfig = ToyDatasetConfig()

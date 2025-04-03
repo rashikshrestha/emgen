@@ -13,6 +13,7 @@ class LinearArch(nn.Module):
     """
     def __init__(
         self, 
+        device: str = 'cpu',
         data_dim: int = 2,
         emb_size: int = 128,
         input_emb: str = "sinusoidal",
@@ -22,11 +23,12 @@ class LinearArch(nn.Module):
         weights: str = None
     ):
         super().__init__()
+        self.device = device
 
         #! Positional Embeddings
-        self.input_mlp1 = PositionalEmbedding(emb_size, input_emb, scale=25.0)
-        self.input_mlp2 = PositionalEmbedding(emb_size, input_emb, scale=25.0)
-        self.time_mlp   = PositionalEmbedding(emb_size, time_emb)
+        self.input_mlp1 = PositionalEmbedding(emb_size, input_emb, scale=25.0, device=self.device)
+        self.input_mlp2 = PositionalEmbedding(emb_size, input_emb, scale=25.0, device=self.device)
+        self.time_mlp   = PositionalEmbedding(emb_size, time_emb, device=self.device)
 
         #! Main Backbone
         input_size = len(self.input_mlp1.layer) + len(self.input_mlp2.layer) + len(self.time_mlp.layer)
@@ -36,7 +38,6 @@ class LinearArch(nn.Module):
             state_dict = torch.load(weights, map_location='cpu')
             self.load_state_dict(state_dict)
             log.info(f"Loaded weights from {weights} into LinearArch")
-            input()
 
 
     def forward(self, x, t):
