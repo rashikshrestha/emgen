@@ -1,12 +1,162 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+import torch
+from matplotlib.colors import Normalize
+import seaborn as sns
+import io
+import base64
+from IPython.display import HTML
+import os
 
-def plot_1d_pdf():
-    pass
+def plot_1d_pdf(data, model_samples=None, bins=100, title="Probability Density Function Comparison",
+                figsize=(10, 6), save_path=None):
+    """
+    Plot the probability density function of real data vs. generated samples for 1D data.
+
+    Args:
+        data: Real data samples from the dataset (numpy array)
+        model_samples: Generated samples from the diffusion model (numpy array)
+        bins: Number of histogram bins
+        title: Plot title
+        figsize: Figure size (width, height)
+        save_path: Path to save the figure (optional)
+
+    Returns:
+        fig: Matplotlib figure object
+    """
+    # Create figure
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Determine data range for consistent visualization
+    if model_samples is not None:
+        min_val = min(data.min(), model_samples.min())
+        max_val = max(data.max(), model_samples.max())
+        # Add some padding
+        range_padding = (max_val - min_val) * 0.1
+        plot_range = (min_val - range_padding, max_val + range_padding)
+    else:
+        # Add some padding
+        range_padding = (data.max() - data.min()) * 0.1
+        plot_range = (data.min() - range_padding, data.max() + range_padding)
+
+    # Plot real data histogram with density=True for PDF
+    ax.hist(data.flatten(), bins=bins, density=True, alpha=0.7,
+            label='Real Data', color='blue', range=plot_range)
+
+    # Plot model samples if provided
+    if model_samples is not None:
+        ax.hist(model_samples.flatten(), bins=bins, density=True, alpha=0.7,
+                label='Generated Samples', color='red', range=plot_range)
+
+    # Add KDE curves for smoother visualization
+    if data.size > 1:  # Only if we have enough data points
+        sns.kdeplot(data.flatten(), ax=ax, color='darkblue', lw=2, label='_nolegend_')
+        if model_samples is not None and model_samples.size > 1:
+            sns.kdeplot(model_samples.flatten(), ax=ax, color='darkred', lw=2, label='_nolegend_')
+
+    # Add labels and title
+    ax.set_xlabel('Value')
+    ax.set_ylabel('Density')
+    ax.set_title(title)
+    ax.legend()
+    ax.grid(alpha=0.3)
+
+    # Save figure if path is provided
+    if save_path:
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.', exist_ok=True)
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        print(f"Saved 1D PDF plot to {save_path}")
+
+    plt.tight_layout()
+    return fig
 
 
-def plot_2d_pdf():
-    pass
+def plot_2d_pdf(data, model_samples=None, bins=50, cmap='viridis',
+                title="2D Probability Density Function", figsize=(15, 6), save_path=None):
+    """
+    Plot the 2D probability density function of real data vs. generated samples.
+
+    Args:
+        data: Real data samples from the dataset (numpy array)
+        model_samples: Generated samples from the diffusion model (numpy array)
+        bins: Number of histogram bins
+        cmap: Colormap for the density plots
+        title: Plot title
+        figsize: Figure size (width, height)
+        save_path: Path to save the figure (optional)
+
+    Returns:
+        fig: Matplotlib figure object
+    """
+    # Ensure data is 2D
+    if data.shape[1] != 2:
+        raise ValueError("Data must be 2-dimensional for 2D PDF visualization")
+
+    # Create figure based on whether model samples are provided
+    if model_samples is None:
+        fig, ax = plt.subplots(figsize=(figsize[0] // 2, figsize[1]))
+        axes = [ax]  # For consistent indexing later
+    else:
+        fig, axes = plt.subplots(1, 2, figsize=figsize)
+
+    # Determine common plotting range for consistency
+    if model_samples is not None:
+        all_data = np.vstack([data, model_samples])
+    else:
+        all_data = data
+
+    x_min, y_min = all_data.min(axis=0) - 0.5
+    x_max, y_max = all_data.max(axis=0) + 0.5
+    plot_range = [[x_min, x_max], [y_min, y_max]]
+
+    # Plot real data
+    h_real, xedges, yedges, im_real = axes[0].hist2d(
+        data[:, 0], data[:, 1],
+        bins=bins,
+        cmap=cmap,
+        range=plot_range,
+        density=True,
+        norm=Normalize()  # For consistent colormap scaling
+    )
+    axes[0].set_title("Real Data Distribution")
+    axes[0].set_xlabel("Dimension 1")
+    axes[0].set_ylabel("Dimension 2")
+    fig.colorbar(im_real, ax=axes[0], label="Density")
+
+    # Plot model samples if provided
+    if model_samples is not None:
+        h_model, _, _, im_model = axes[1].hist2d(
+            model_samples[:, 0], model_samples[:, 1],
+            bins=bins,
+            cmap=cmap,
+            range=plot_range,
+            density=True,
+            norm=Normalize()  # For consistent colormap scaling
+        )
+        axes[1].set_title("Generated Samples Distribution")
+        axes[1].set_xlabel("Dimension 1")
+        axes[1].set_ylabel("Dimension 2")
+        fig.colorbar(im_model, ax=axes[1], label="Density")
+
+    # Add scatter points on top to show individual samples (with small alpha)
+    axes[0].scatter(data[:, 0], data[:, 1], alpha=0.1, s=1, color='white')
+    if model_samples is not None:
+        axes[1].scatter(model_samples[:, 0], model_samples[:, 1], alpha=0.1, s=1, color='white')
+
+    # Add overall title
+    fig.suptitle(title, fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.95])  # Adjust layout to make room for suptitle
+
+    # Save figure if path is provided
+    if save_path:
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.', exist_ok=True)
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        print(f"Saved 2D PDF plot to {save_path}")
+
+    return fig
 
 
 def plot_timeseries_1d_pdf():
