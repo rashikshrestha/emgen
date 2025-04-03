@@ -27,14 +27,16 @@ class DiffusionModel():
     """
     def __init__(
         self,
+        device: str = 'cpu',
         noise_scheduler: NoiseScheduler = NoiseScheduler(),
         diffusion_arch: LinearArch = LinearArch(),
         dataset: ToyDataset = ToyDataset(),
         train: TrainConfig = TrainConfig()
     ):
         #! Inputs
+        self.device = device
         self.noise_scheduler = noise_scheduler
-        self.diffusion_arch = diffusion_arch
+        self.diffusion_arch = diffusion_arch.to(self.device)
         self.train_config = train
         
         self.out_dir = Path(HydraConfig.get().runtime.output_dir)
@@ -75,10 +77,13 @@ class DiffusionModel():
                 noisy = self.noise_scheduler.add_noise(batch, noise, timesteps)
                
                 #! Use model to predict noise
+                #TODO: this will be removed once noise scheduler runs on cuda
+                noisy, timesteps = noisy.to(self.device), timesteps.to(self.device)
                 noise_pred = self.diffusion_arch(noisy, timesteps)
                 
                 #! Calculate Loss
-                loss = F.mse_loss(noise_pred, noise)
+                #TODO: remove for same reason
+                loss = F.mse_loss(noise_pred, noise.to(self.device))
                 loss.backward()
                
                 #! Update Model 
@@ -113,7 +118,9 @@ class DiffusionModel():
         for i, t in enumerate(tqdm(timesteps)):
             t = torch.from_numpy(np.repeat(t, self.train_config.eval_batch_size)).long()
             with torch.no_grad():
-                residual = self.diffusion_arch(sample, t)
+                #TODO: update if noise scheduler in cuda
+                residual = self.diffusion_arch(sample.to(self.device), t.to(self.device)) #TODO: remove this once noise scheduler can run on cuda
+                residual = residual.detach().cpu()
             sample = self.noise_scheduler.step(residual, t[0], sample)
             if get_intermediate_samples: intermediate_samples.append(sample.numpy())  # Store intermediate frames for visualization
         if get_intermediate_samples: output['intermediate_samples'] = np.array(intermediate_samples)

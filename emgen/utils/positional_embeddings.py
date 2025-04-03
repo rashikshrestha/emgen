@@ -2,18 +2,20 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+#TODO: device setup in another Emneddigs except Sinusoidal
 
 class SinusoidalEmbedding(nn.Module):
-    def __init__(self, size: int, scale: float = 1.0):
+    def __init__(self, size: int, scale: float = 1.0, **kwargs):
         super().__init__()
+        self.device = kwargs['device']
         self.size = size
         self.scale = scale
 
     def forward(self, x: torch.Tensor):
         x = x * self.scale
         half_size = self.size // 2
-        emb = torch.log(torch.Tensor([10000.0])) / (half_size - 1)
-        emb = torch.exp(-emb * torch.arange(half_size))
+        emb = torch.log(torch.tensor([10000.0], device=self.device)) / (half_size - 1)
+        emb = torch.exp(-emb * torch.arange(half_size, device=self.device))
         emb = x.unsqueeze(-1) * emb.unsqueeze(0)
         emb = torch.cat((torch.sin(emb), torch.cos(emb)), dim=-1)
         return emb
