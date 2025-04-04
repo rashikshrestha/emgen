@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize
 import seaborn as sns
 import os
+import cv2
+import subprocess
 
 
 def plot_1d_pdf(data, model_samples=None, bins=100, title="Probability Density Function Comparison",
@@ -189,3 +191,72 @@ def plot_2d_intermediate_samples(samples, out_dir, no_of_samples_to_save, revers
         image_name = f"sample_{no_of_samples-i-1:04}.png" if reverse else f"sample_{i:04}.png"
         plt.savefig(f"{out_dir}/{image_name}")
         plt.close()
+        
+    #! Make GIF out of saved Images
+    command = f"convert -delay 10 -loop 0 {out_dir}/sample_*.png "
+    if reverse: command += "-reverse "
+    command += f"{out_dir}/intermediate_samples.gif"
+    subprocess.run(command, shell=True, check=True)
+
+  
+def plot_images_intermediate_samples(samples, out_dir, no_of_samples_to_save, reverse=True):
+    """
+    Args:
+        samples (numpy.ndarray): [timesteps, B, C, H, W] Intermediate Image samples generated during the diffusion process.
+    """
+    #! Indices to Plot
+    no_of_samples = samples.shape[0]  # Number of timesteps
+    if no_of_samples_to_save < no_of_samples:
+        indices = np.round(np.linspace(0, no_of_samples-1, no_of_samples_to_save)).astype(int)
+    else:
+        indices = np.arange(no_of_samples)
+
+    #! Make grid of batch images
+    reshaped_samples = reshape_samples_for_grid(samples)
+    
+    #! Plot Individual samples
+    for i in indices:
+        image_name = f"sample_{no_of_samples-i-1:04}.png" if reverse else f"sample_{i:04}.png"
+        cv2.imwrite(f"{out_dir}/{image_name}",  reshaped_samples[i].transpose(1, 2, 0) * 255)
+        
+    #! Make GIF out of saved Images
+    command = f"convert -delay 10 -loop 0 {out_dir}/sample_*.png "
+    if reverse: command += "-reverse "
+    command += f"{out_dir}/intermediate_samples.gif"
+    subprocess.run(command, shell=True, check=True)
+    
+
+def reshape_samples_for_grid(samples, aspect_ratio=(9, 16)):
+    """
+    Reshape samples from [timesteps, B, C, H, W] to [timesteps, C, H*nrows, W*ncolumns]
+    while maintaining an approximate aspect ratio for nrows and ncolumns.
+
+    Args:
+        samples (numpy.ndarray): Input samples of shape [timesteps, B, C, H, W].
+        aspect_ratio (tuple): Desired aspect ratio (nrows:ncolumns), default is (9:16).
+
+    Returns:
+        numpy.ndarray: Reshaped samples of shape [timesteps, C, H*nrows, W*ncolumns].
+    """
+    timesteps, B, C, H, W = samples.shape
+
+    # Calculate nrows and ncolumns to maintain the aspect ratio
+    total_cells = B
+    aspect_ratio_float = aspect_ratio[0] / aspect_ratio[1]
+    nrows = int(np.sqrt(total_cells * aspect_ratio_float))
+    ncolumns = int(np.ceil(total_cells / nrows))
+
+    # Ensure the grid can fit all samples
+    assert nrows * ncolumns >= B, "Grid size is too small to fit all samples."
+
+    # Create an empty array for the reshaped samples
+    reshaped_samples = np.zeros((timesteps, C, H * nrows, W * ncolumns), dtype=samples.dtype)
+
+    # Fill the grid with the samples
+    for t in range(timesteps):
+        for idx in range(B):
+            row = idx // ncolumns
+            col = idx % ncolumns
+            reshaped_samples[t, :, row * H:(row + 1) * H, col * W:(col + 1) * W] = samples[t, idx]
+
+    return reshaped_samples
