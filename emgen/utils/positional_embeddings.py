@@ -6,6 +6,7 @@ from torch.nn import functional as F
 
 class SinusoidalEmbedding(nn.Module):
     def __init__(self, size: int, scale: float = 1.0, **kwargs):
+        #TODO: visualize positional embeddings (for scale) here for data range 0-1
         super().__init__()
         self.device = kwargs['device']
         self.size = size
