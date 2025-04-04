@@ -6,8 +6,8 @@ from matplotlib.colors import Normalize
 import seaborn as sns
 import io
 import base64
-from IPython.display import HTML
 import os
+
 
 def plot_1d_pdf(data, model_samples=None, bins=100, title="Probability Density Function Comparison",
                 figsize=(10, 6), save_path=None):
