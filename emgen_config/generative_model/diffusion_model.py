@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from emgen_config.train import TrainConfig
-from emgen_config.dataset.dataset import ToyDatasetConfig
+from emgen_config.dataset.dataset import ToyDatasetConfig, MNISTDatasetConfig
+
 
 @dataclass
 class NoiseSchedulerConfig:
     _target_: str = "emgen.generative_model.diffusion.noise_scheduler.NoiseScheduler"
     device: str = "${device}"
-    num_timesteps: int = 1000
+    num_timesteps: int = 100
     beta_start: float = 0.0001
     beta_end: float = 0.02
     beta_schedule: str = "linear"
@@ -31,15 +32,10 @@ class UNetArchConfig:
     device: str = "${device}"
     emb_size: int = 128
     time_emb: str = "sinusoidal"
-    in_channels: int = 3
+    in_channels: int = 1
     base_channels: int = 64
     num_down: int = 2
     weights: str | None = None
- 
-@dataclass
-class UNetArchConfig:
-    _target_: str = "emgen.generative_model.diffusion.diffusion_model_arch.UNetArch"
-    
     
 @dataclass
 class UNet1DArchConfig:
