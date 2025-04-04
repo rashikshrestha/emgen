@@ -12,7 +12,7 @@ from pathlib import Path
 from hydra.core.hydra_config import HydraConfig
 
 #! emgen imports
-from emgen.utils.visualization import plot_2d_intermediate_samples
+from emgen.utils.visualization import plot_2d_intermediate_samples, plot_images_intermediate_samples
 from emgen.generative_model.diffusion.noise_scheduler import NoiseScheduler
 from emgen.generative_model.diffusion.diffusion_model_arch import LinearArch
 from emgen.dataset.toy_dataset import ToyDataset
@@ -64,7 +64,7 @@ class DiffusionModel():
         self.diffusion_arch.train()
         
         for epoch in tqdm(range(self.train_config.num_epochs)):
-            for batch in self.train_loader:
+            for batch in tqdm(self.train_loader):
                 batch = batch.to(self.device)
 
                 #! Sample Random Noise
@@ -95,11 +95,22 @@ class DiffusionModel():
                 sample_out = self.sample()
                 sample_out_dir = self.out_dir/f"train_epoch_{epoch:02d}"
                 sample_out_dir.mkdir(parents=True, exist_ok=True)
-                plot_2d_intermediate_samples(
-                    sample_out['intermediate_samples'], 
-                    sample_out_dir, 
-                    self.train_config.no_of_diff_samples_to_save,     
-                )
+                
+                #! Plotting
+                # If Image Data
+                if len(sample_out['intermediate_samples'].shape) == 5:
+                    plot_images_intermediate_samples(
+                        sample_out['intermediate_samples'], 
+                        sample_out_dir, 
+                        self.train_config.no_of_diff_samples_to_save,     
+                    )
+                # If 2D Data
+                elif len(sample_out['intermediate_samples'].shape) == 3:
+                    plot_2d_intermediate_samples(
+                        sample_out['intermediate_samples'], 
+                        sample_out_dir, 
+                        self.train_config.no_of_diff_samples_to_save,     
+                    )
                 torch.save(self.diffusion_arch.state_dict(), self.out_dir/f"train_epoch_{epoch:02d}/diffusion_arch.pth")
 
  
@@ -119,7 +130,7 @@ class DiffusionModel():
             t = torch.from_numpy(np.repeat(t, self.train_config.eval_batch_size)).long().to(self.device)
             with torch.no_grad():
                 residual = self.diffusion_arch(sample, t)
-            sample = self.noise_scheduler.step(residual, t[0], sample)
+            sample = self.noise_scheduler.step(residual, sample, t[0]) # Same timestep for all samples
             if get_intermediate_samples: intermediate_samples.append(sample.cpu().numpy())  # Store intermediate frames for visualization
         if get_intermediate_samples: output['intermediate_samples'] = np.array(intermediate_samples)
         #! Final sample
