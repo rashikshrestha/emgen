@@ -5,14 +5,14 @@ from emgen_config.dataset.dataset import ToyDatasetConfig
 @dataclass
 class NoiseSchedulerConfig:
     _target_: str = "emgen.generative_model.diffusion.noise_scheduler.NoiseScheduler"
-    device: str = "${...device}"
+    device: str = "${device}"
     num_timesteps: int = 1000
     beta_start: float = 0.0001
     beta_end: float = 0.02
     beta_schedule: str = "linear"
     diffusion_type: str = "ddpm"
 
-#! Diffusion Model Architecture
+#! Diffusion Model Architectures
 @dataclass
 class LinearArchConfig:
     _target_: str = "emgen.generative_model.diffusion.diffusion_model_arch.LinearArch"
@@ -25,6 +25,16 @@ class LinearArchConfig:
     hidden_layers: int = 3
     weights: str | None = None
     
+@dataclass
+class UNetArchConfig:
+    _target_: str = "emgen.generative_model.diffusion.diffusion_model_arch.UNetArch"
+    device: str = "${device}"
+    emb_size: int = 128
+    time_emb: str = "sinusoidal"
+    in_channels: int = 3
+    base_channels: int = 64
+    num_down: int = 2
+    weights: str | None = None
  
 @dataclass
 class UNetArchConfig:
