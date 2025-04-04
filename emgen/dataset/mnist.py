@@ -20,12 +20,4 @@ class MNISTDataset(Dataset):
 
     def __getitem__(self, idx):
         image, _ = self.mnist[idx]
-        return image[0] # Drop the single channel dimension
-
- 
-if __name__ == "__main__": 
-    dataset = MNISTDataset()
-    print(len(dataset))
-    print(dataset[0].shape)
-    print(dataset[0].dtype)
-    print(dataset[0].min(), dataset[0].max())
+        return image
