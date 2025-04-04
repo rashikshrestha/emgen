@@ -1,12 +1,6 @@
 import torch
 from torch.nn import functional as F
 
-def get_beta_schedule(type, start, end, steps):
-    if type == "linear":
-        return torch.linspace(start, end, steps, dtype=torch.float32)
-    elif type == "quadratic":
-        return torch.linspace(start ** 0.5, end ** 0.5, steps, dtype=torch.float32) ** 2
-    
 
 class NoiseScheduler():
     def __init__(
@@ -20,7 +14,7 @@ class NoiseScheduler():
         self.num_timesteps = num_timesteps
 
         #! Betas and Alphas
-        self.betas = get_beta_schedule(beta_schedule, beta_start, beta_end, num_timesteps)
+        self.betas = self.get_beta_schedule(beta_schedule, beta_start, beta_end, num_timesteps)
         # print(self.betas.shape)
         self.alphas = 1.0 - self.betas
         # print(self.alphas.shape)
@@ -46,6 +40,12 @@ class NoiseScheduler():
         
     def __len__(self):
         return self.num_timesteps
+    
+    def get_beta_schedule(self, type, start, end, steps):
+        if type == "linear":
+            return torch.linspace(start, end, steps, dtype=torch.float32)
+        elif type == "quadratic":
+            return torch.linspace(start ** 0.5, end ** 0.5, steps, dtype=torch.float32) ** 2
 
  
     def add_noise(self, x_start, x_noise, timesteps):
