@@ -1,33 +1,29 @@
 import torch
 from torch.nn import functional as F
 
-def get_beta_schedule(type, start, end, steps):
-    if type == "linear":
-        return torch.linspace(start, end, steps, dtype=torch.float32)
-    elif type == "quadratic":
-        return torch.linspace(start ** 0.5, end ** 0.5, steps, dtype=torch.float32) ** 2
-    
 
 class NoiseScheduler():
     def __init__(
         self,
+        device: str = 'cpu',
         num_timesteps=1000,
         beta_start=0.0001,
         beta_end=0.02,
         beta_schedule="linear",
         diffusion_type="ddpm"
     ):
+        self.device = device
         self.num_timesteps = num_timesteps
 
         #! Betas and Alphas
-        self.betas = get_beta_schedule(beta_schedule, beta_start, beta_end, num_timesteps)
+        self.betas = self.get_beta_schedule(beta_schedule, beta_start, beta_end, num_timesteps)
         # print(self.betas.shape)
         self.alphas = 1.0 - self.betas
         # print(self.alphas.shape)
         self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)
         # print(self.alphas_cumprod.shape)
         # print(self.alphas_cumprod[:10])
-        self.alphas_cumprod_prev = F.pad(self.alphas_cumprod[:-1], (1, 0), value=1.) #TODO: why this padding?
+        self.alphas_cumprod_prev = F.pad(self.alphas_cumprod[:-1], (1, 0), value=1.)
         # print(self.alphas_cumprod_prev.shape)
         # print(self.alphas_cumprod_prev[:10])
 
@@ -46,6 +42,12 @@ class NoiseScheduler():
         
     def __len__(self):
         return self.num_timesteps
+    
+    def get_beta_schedule(self, type, start, end, steps):
+        if type == "linear":
+            return torch.linspace(start, end, steps, dtype=torch.float32, device=self.device)
+        elif type == "quadratic":
+            return torch.linspace(start ** 0.5, end ** 0.5, steps, dtype=torch.float32, device=self.device) ** 2
 
  
     def add_noise(self, x_start, x_noise, timesteps):
@@ -88,7 +90,7 @@ class NoiseScheduler():
 
         variance = 0
         if t > 0:
-            noise = torch.randn_like(model_output)
+            noise = torch.randn_like(model_output, device=self.device)
             variance = (self.get_variance(t) ** 0.5) * noise
 
         pred_prev_sample = pred_prev_sample + variance

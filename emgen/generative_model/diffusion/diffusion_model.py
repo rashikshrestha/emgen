@@ -65,27 +65,27 @@ class DiffusionModel():
         
         for epoch in tqdm(range(self.train_config.num_epochs)):
             for batch in self.train_loader:
+                batch = batch.to(self.device)
+
                 #! Sample Random Noise
-                noise = torch.randn(batch.shape)
+                noise = torch.randn(batch.shape, device=self.device)
                 
                 #! Sample random timesteps
                 timesteps = torch.randint(
-                    0, self.noise_scheduler.num_timesteps, (batch.shape[0],)
+                    0, self.noise_scheduler.num_timesteps, (batch.shape[0],),
+                    device=self.device
                 ).long()
                 
                 #! Add noise to the batch
                 noisy = self.noise_scheduler.add_noise(batch, noise, timesteps)
-               
+                
                 #! Use model to predict noise
-                #TODO: this will be removed once noise scheduler runs on cuda
-                noisy, timesteps = noisy.to(self.device), timesteps.to(self.device)
                 noise_pred = self.diffusion_arch(noisy, timesteps)
                 
                 #! Calculate Loss
-                #TODO: remove for same reason
-                loss = F.mse_loss(noise_pred, noise.to(self.device))
+                loss = F.mse_loss(noise_pred, noise)
                 loss.backward()
-               
+                
                 #! Update Model 
                 nn.utils.clip_grad_norm_(self.diffusion_arch.parameters(), 1.0)
                 self.optimizer.step()
@@ -110,21 +110,19 @@ class DiffusionModel():
         output = {}
         intermediate_samples = []
         #! Sample random noise
-        sample = torch.randn(torch.Size([self.train_config.eval_batch_size, *self.data_dim]))
-        if get_intermediate_samples: intermediate_samples.append(sample.numpy())
+        sample = torch.randn(torch.Size([self.train_config.eval_batch_size, *self.data_dim]), device=self.device)
+        if get_intermediate_samples: intermediate_samples.append(sample.cpu().numpy())
         #! List the timesteps in reverse order for sampling
         timesteps = list(range(len(self.noise_scheduler)))[::-1]
         #! Reverse diffusion process
         for i, t in enumerate(tqdm(timesteps)):
-            t = torch.from_numpy(np.repeat(t, self.train_config.eval_batch_size)).long()
+            t = torch.from_numpy(np.repeat(t, self.train_config.eval_batch_size)).long().to(self.device)
             with torch.no_grad():
-                #TODO: update if noise scheduler in cuda
-                residual = self.diffusion_arch(sample.to(self.device), t.to(self.device)) #TODO: remove this once noise scheduler can run on cuda
-                residual = residual.detach().cpu()
+                residual = self.diffusion_arch(sample, t)
             sample = self.noise_scheduler.step(residual, t[0], sample)
-            if get_intermediate_samples: intermediate_samples.append(sample.numpy())  # Store intermediate frames for visualization
+            if get_intermediate_samples: intermediate_samples.append(sample.cpu().numpy())  # Store intermediate frames for visualization
         if get_intermediate_samples: output['intermediate_samples'] = np.array(intermediate_samples)
         #! Final sample
-        generated_sample = sample.numpy()
+        generated_sample = sample.cpu().numpy()
         output['generated_sample'] = generated_sample
         return output

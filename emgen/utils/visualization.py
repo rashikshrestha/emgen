@@ -1,11 +1,9 @@
+import matplotlib
+matplotlib.use('Agg')  # use non-interactive backend for ssh connection, else plotting is slow
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-import torch
 from matplotlib.colors import Normalize
 import seaborn as sns
-import io
-import base64
 import os
 
 
