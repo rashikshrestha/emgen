@@ -5,6 +5,7 @@ from emgen_config.dataset.dataset import ToyDatasetConfig
 @dataclass
 class NoiseSchedulerConfig:
     _target_: str = "emgen.generative_model.diffusion.noise_scheduler.NoiseScheduler"
+    device: str = "${...device}"
     num_timesteps: int = 1000
     beta_start: float = 0.0001
     beta_end: float = 0.02
