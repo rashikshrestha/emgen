@@ -50,15 +50,15 @@ class NoiseScheduler():
             return torch.linspace(start ** 0.5, end ** 0.5, steps, dtype=torch.float32, device=self.device) ** 2
 
  
-    def add_noise(self, x_start, x_noise, timesteps):
+    def add_noise(self, x_start, x_noise, timesteps: torch.Tensor):
         s1 = self.sqrt_alphas_cumprod[timesteps]
         s2 = self.sqrt_one_minus_alphas_cumprod[timesteps]
-        s1 = s1.reshape(-1, 1)
-        s2 = s2.reshape(-1, 1)
+        s1 = s1.reshape(-1, *[1] * (x_start.dim() - 1))
+        s2 = s2.reshape(-1, *[1] * (x_start.dim() - 1))
         return s1 * x_start + s2 * x_noise
 
 
-    def reconstruct_x0(self, x_t, t, noise):
+    def reconstruct_x0(self, x_t: torch.Tensor, noise: torch.Tensor, t: int):
         s1 = self.sqrt_inv_alphas_cumprod[t]
         s2 = self.sqrt_inv_alphas_cumprod_minus_one[t]
         s1 = s1.reshape(-1, 1)
@@ -66,7 +66,7 @@ class NoiseScheduler():
         return s1 * x_t - s2 * noise
 
 
-    def q_posterior(self, x_0, x_t, t):
+    def q_posterior(self, x_0, x_t, t: int):
         s1 = self.posterior_mean_coef1[t]
         s2 = self.posterior_mean_coef2[t]
         s1 = s1.reshape(-1, 1)
@@ -83,9 +83,9 @@ class NoiseScheduler():
         return variance
 
 
-    def step(self, model_output, timestep, sample):
+    def step(self, model_output, sample, timestep: int):
         t = timestep
-        pred_original_sample = self.reconstruct_x0(sample, t, model_output)
+        pred_original_sample = self.reconstruct_x0(sample, model_output, t)
         pred_prev_sample = self.q_posterior(pred_original_sample, sample, t)
 
         variance = 0
