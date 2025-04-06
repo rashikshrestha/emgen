@@ -160,9 +160,79 @@ def plot_2d_pdf(data, model_samples=None, bins=50, cmap='viridis',
     return fig
 
 
-def plot_timeseries_1d_pdf():
-    #TODO: Ghazal
-    pass
+def plot_timeseries_1d_pdf(diffusion_samples, timesteps,
+                           title="1D Distribution Evolution Over Time",
+                           figsize=(10, 6), save_path=None, cmap='viridis'):
+    """
+    Visualize how a 1D distribution evolves during the diffusion process.
+
+    Args:
+        diffusion_samples (list): List of tensors or arrays with shape [batch_size, 1]
+                                 for each timestep
+        timesteps (list): List of timestep values corresponding to the samples
+        title (str): Plot title
+        figsize (tuple): Figure size (width, height)
+        save_path (str): Path to save the figure (optional)
+        cmap (str): Colormap for the heatmap
+
+    Returns:
+        fig: Matplotlib figure object
+    """
+    # Convert to numpy arrays if they're tensors
+    samples_np = []
+    for s in diffusion_samples:
+        if isinstance(s, torch.Tensor):
+            samples_np.append(s.detach().cpu().numpy())
+        else:
+            samples_np.append(s)
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Define the bins for the histogram
+    min_val = min([np.min(s) for s in samples_np])
+    max_val = max([np.max(s) for s in samples_np])
+    range_padding = (max_val - min_val) * 0.1
+    plot_range = (min_val - range_padding, max_val + range_padding)
+
+    bins = np.linspace(plot_range[0], plot_range[1], 100)
+
+    # Create a 2D histogram-like array
+    density_over_time = np.zeros((len(timesteps), len(bins) - 1))
+
+    # Fill the density array
+    for i, samples in enumerate(samples_np):
+        hist, _ = np.histogram(samples.flatten(), bins=bins, density=True)
+        density_over_time[i, :] = hist
+
+    # Normalize for better visualization
+    density_over_time = density_over_time / np.max(density_over_time)
+
+    # Create the heatmap
+    im = ax.imshow(density_over_time,
+                   aspect='auto',
+                   origin='lower',
+                   cmap=cmap,
+                   extent=[bins[0], bins[-1], timesteps[0], timesteps[-1]])
+
+    # Add colorbar
+    cbar = fig.colorbar(im, ax=ax)
+    cbar.set_label('Normalized Density')
+
+    # Add labels and title
+    ax.set_xlabel('Sample Value')
+    ax.set_ylabel('Timestep')
+    ax.set_title(title)
+
+    # Save figure if path is provided
+    if save_path:
+        os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.',
+                    exist_ok=True)
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        print(f"Saved 1D timestep PDF plot to {save_path}")
+
+    plt.tight_layout()
+    return fig
 
 
 def plot_2d_intermediate_samples(samples, out_dir, no_of_samples_to_save, reverse=True):
