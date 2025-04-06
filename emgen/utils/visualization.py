@@ -7,6 +7,7 @@ import seaborn as sns
 import os
 import cv2
 import subprocess
+from emgen.dataset.toy_dataset import get_gt_dino_dataset
 
 
 def plot_1d_pdf(data, model_samples=None, bins=100, title="Probability Density Function Comparison",
@@ -191,6 +192,27 @@ def plot_2d_intermediate_samples(samples, out_dir, no_of_samples_to_save, revers
         image_name = f"sample_{no_of_samples-i-1:04}.png" if reverse else f"sample_{i:04}.png"
         plt.savefig(f"{out_dir}/{image_name}")
         plt.close()
+
+    #! Plot Particle Trajectory
+    plt.figure(figsize=(10,10))
+    for i in range(samples.shape[1]):
+        plt.plot(samples[:,i,0], samples[:,i,1], linewidth=2, zorder=1, alpha=0.7)
+
+    plt.scatter(samples[0, :, 0], samples[0, :, 1], c='red', marker='o', s=20, label='Initial Position', zorder=2)
+    plt.scatter(samples[-1, :, 0], samples[-1, :, 1], c='blue', marker='o', s=20, label='Final Position', zorder=2)
+    
+    gt_dino_data = get_gt_dino_dataset()
+    plt.scatter(gt_dino_data[:,0], gt_dino_data[:,1], c='green', marker='o', s=1, label='GT Distribution', zorder=1)
+    
+    plt.title("Diffusion Trajectories")
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.xlim(-6, 6)
+    plt.ylim(-6, 6)
+    plt.tight_layout()
+    plt.legend()
+    plt.savefig(f"{out_dir}/intermediate_traj.pdf")
+    plt.close()
         
     #! Make GIF out of saved Images
     command = f"convert -delay 10 -loop 0 {out_dir}/sample_*.png "
