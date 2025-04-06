@@ -76,3 +76,16 @@ def dino_dataset(n=8000):
     y = (y/48 - 1) * 4
     X = np.stack((x, y), axis=1)
     return torch.from_numpy(X.astype(np.float32))
+
+
+def get_gt_dino_dataset():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(current_dir, "DatasaurusDozen.tsv")
+    df = pd.read_csv(csv_path, sep="\t")
+    df = df[df["dataset"] == "dino"]
+
+    x = np.array(df["x"].tolist())
+    y = np.array(df["y"].tolist())
+    x = (x/54 - 1) * 4
+    y = (y/48 - 1) * 4
+    return np.stack((x, y), axis=1)
