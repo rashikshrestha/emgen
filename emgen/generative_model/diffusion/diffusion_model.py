@@ -122,12 +122,16 @@ class DiffusionModel():
         intermediate_samples = []
         #! Sample random noise
         sample = torch.randn(torch.Size([self.train_config.eval_batch_size, *self.data_dim]), device=self.device)
+        # from emgen.dataset.toy_dataset import get_gt_dino_dataset
+        # sample = get_gt_dino_dataset()
+        # sample = torch.as_tensor(sample, device=self.device, dtype=torch.float32)
         if get_intermediate_samples: intermediate_samples.append(sample.cpu().numpy())
         #! List the timesteps in reverse order for sampling
         timesteps = list(range(len(self.noise_scheduler)))[::-1]
         #! Reverse diffusion process
         for i, t in enumerate(tqdm(timesteps)):
             t = torch.from_numpy(np.repeat(t, self.train_config.eval_batch_size)).long().to(self.device)
+            # t = torch.from_numpy(np.repeat(t, 142)).long().to(self.device)
             with torch.no_grad():
                 residual = self.diffusion_arch(sample, t)
             sample = self.noise_scheduler.step(residual, sample, t[0]) # Same timestep for all samples
