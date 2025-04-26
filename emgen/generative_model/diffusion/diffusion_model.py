@@ -16,7 +16,7 @@ from emgen.utils.visualization import plot_2d_intermediate_samples, plot_images_
 from emgen.generative_model.diffusion.noise_scheduler import NoiseScheduler
 from emgen.generative_model.diffusion.diffusion_model_arch import LinearArch
 from emgen.dataset.toy_dataset import ToyDataset
-from emgen_config.train import TrainConfig
+from emgen.utils.config_schema import TrainConfig
 
 log = logging.getLogger(__name__)
 
