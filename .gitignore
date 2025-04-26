@@ -1,4 +1,8 @@
 .vscode/
+.idea/
+.pytest_cache/
+*.egg-info/
+*.egg
 outputs/
 *.pyc
 **/__pycache__/

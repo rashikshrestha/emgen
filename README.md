@@ -8,4 +8,4 @@ export PYTHONPATH=$PYTHONPATH:`pwd`
 ```
 
 # References
-- [Tiny Diffusion](https://github.com/tanelp/tiny-diffusion)# emgen
+- [Tiny Diffusion](https://github.com/tanelp/tiny-diffusion)
