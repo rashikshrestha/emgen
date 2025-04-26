@@ -1,0 +1,2 @@
+_target_: emgen.dataset.mnist.MNISTDataset
+train: true

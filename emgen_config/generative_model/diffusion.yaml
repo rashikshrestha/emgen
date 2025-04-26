@@ -1,0 +1,25 @@
+defaults:
+  - _self_
+  - diffusion_arch: linear  # or unet, unet1d
+  - dataset: toy            # or mnist
+
+_target_: emgen.generative_model.diffusion.diffusion_model.DiffusionModel
+device: ${device}
+
+noise_scheduler:
+  _target_: emgen.generative_model.diffusion.noise_scheduler.NoiseScheduler
+  device: ${device}
+  num_timesteps: 100
+  beta_start: 0.0001
+  beta_end: 0.02
+  beta_schedule: linear
+  diffusion_type: ddpm
+
+train:
+  train_batch_size: 32
+  eval_batch_size: 32
+  num_epochs: 200
+  learning_rate: 0.001
+
+  save_images_step: 50
+  no_of_diff_samples_to_save: 36
