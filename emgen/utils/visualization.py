@@ -8,7 +8,10 @@ import os
 import cv2
 import subprocess
 from emgen.dataset.toy_dataset import get_gt_dino_dataset
-
+import torch
+from emgen.generative_model.diffusion.noise_scheduler import NoiseScheduler
+from emgen.dataset.toy_dataset import gaussian_mixture_1d
+from tqdm import tqdm
 
 def plot_1d_pdf(data, model_samples=None, bins=100, title="Probability Density Function Comparison",
                 figsize=(10, 6), save_path=None):
@@ -160,9 +163,79 @@ def plot_2d_pdf(data, model_samples=None, bins=50, cmap='viridis',
     return fig
 
 
-def plot_timeseries_1d_pdf():
-    #TODO: Ghazal
-    pass
+def plot_timeseries_1d_pdf(diffusion_samples, timesteps,
+                           title="1D Distribution Evolution Over Time",
+                           figsize=(10, 6), save_path=None, cmap='viridis'):
+    """
+    Visualize how a 1D distribution evolves during the diffusion process.
+
+    Args:
+        diffusion_samples (list): List of tensors or arrays with shape [batch_size, 1]
+                                 for each timestep
+        timesteps (list): List of timestep values corresponding to the samples
+        title (str): Plot title
+        figsize (tuple): Figure size (width, height)
+        save_path (str): Path to save the figure (optional)
+        cmap (str): Colormap for the heatmap
+
+    Returns:
+        fig: Matplotlib figure object
+    """
+    # Convert to numpy arrays if they're tensors
+    samples_np = []
+    for s in diffusion_samples:
+        if isinstance(s, torch.Tensor):
+            samples_np.append(s.detach().cpu().numpy())
+        else:
+            samples_np.append(s)
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Define the bins for the histogram
+    min_val = min([np.min(s) for s in samples_np])
+    max_val = max([np.max(s) for s in samples_np])
+    range_padding = (max_val - min_val) * 0.1
+    plot_range = (min_val - range_padding, max_val + range_padding)
+
+    bins = np.linspace(plot_range[0], plot_range[1], 100)
+
+    # Create a 2D histogram-like array
+    density_over_time = np.zeros((len(timesteps), len(bins) - 1))
+
+    # Fill the density array
+    for i, samples in enumerate(samples_np):
+        hist, _ = np.histogram(samples.flatten(), bins=bins, density=True)
+        density_over_time[i, :] = hist
+
+    # Normalize for better visualization
+    density_over_time = density_over_time / np.max(density_over_time)
+
+    # Create the heatmap
+    im = ax.imshow(density_over_time,
+                   aspect='auto',
+                   origin='lower',
+                   cmap=cmap,
+                   extent=[bins[0], bins[-1], timesteps[0], timesteps[-1]])
+
+    # Add colorbar
+    cbar = fig.colorbar(im, ax=ax)
+    cbar.set_label('Normalized Density')
+
+    # Add labels and title
+    ax.set_xlabel('Sample Value')
+    ax.set_ylabel('Timestep')
+    ax.set_title(title)
+
+    # Save figure if path is provided
+    if save_path:
+        os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.',
+                    exist_ok=True)
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        print(f"Saved 1D timestep PDF plot to {save_path}")
+
+    plt.tight_layout()
+    return fig
 
 
 def plot_2d_intermediate_samples(samples, out_dir, no_of_samples_to_save, reverse=True):
@@ -282,3 +355,121 @@ def reshape_samples_for_grid(samples, aspect_ratio=(9, 16)):
             reshaped_samples[t, :, row * H:(row + 1) * H, col * W:(col + 1) * W] = samples[t, idx]
 
     return reshaped_samples
+
+
+def compute_kl_divergence(p_actual, p_t):
+    """
+    Compute KL divergence between actual distribution and noise distribution at time t.
+
+    Args:
+        p_actual (torch.Tensor): Samples from the actual distribution
+        p_t (torch.Tensor): Samples from the noisy distribution at time t
+
+    Returns:
+        float: KL divergence value
+    """
+    from scipy.stats import entropy
+
+    # Convert to numpy arrays for scipy entropy function
+    p_actual_np = p_actual.detach().cpu().numpy()
+    p_t_np = p_t.detach().cpu().numpy()
+
+    # Estimate distributions using histograms
+    bins = 100
+    min_val = min(p_actual_np.min(), p_t_np.min())
+    max_val = max(p_actual_np.max(), p_t_np.max())
+
+    p_actual_hist, bin_edges = np.histogram(p_actual_np, bins=bins, range=(min_val, max_val), density=True)
+    p_t_hist, _ = np.histogram(p_t_np, bins=bins, range=(min_val, max_val), density=True)
+
+    # Add small constant to avoid division by zero
+    p_actual_hist += 1e-10
+    p_t_hist += 1e-10
+
+    # Normalize
+    p_actual_hist /= p_actual_hist.sum()
+    p_t_hist /= p_t_hist.sum()
+
+    # Compute KL divergence: KL(P_actual || P_t)
+    kl_div = entropy(p_actual_hist, p_t_hist)
+
+    return kl_div
+
+def visualize_kl_divergence(
+        beta_schedules=['linear', 'cosine', 'quadratic'],
+        T_values=[10, 100, 1000, 10000],
+        n_samples=10000,
+        output_dir='./results/kl_divergence',
+):
+    os.makedirs(output_dir, exist_ok=True)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # Generate reference data
+    x_0 = gaussian_mixture_1d(n=n_samples).to(device)
+
+    # Loop through hyperparameters
+    for T in T_values:
+        for schedule_type in beta_schedules:
+            combo_dir = os.path.join(output_dir, f"T{T}_{schedule_type}")
+            os.makedirs(combo_dir, exist_ok=True)
+
+            print(f"Evaluating T={T}, schedule={schedule_type}")
+
+            # Create scheduler with this configuration
+            scheduler = NoiseScheduler(
+                device=device,
+                num_timesteps=T,
+                beta_schedule=schedule_type
+            )
+
+            # Storage for results
+            kl_divergences = []
+            t_values = list(range(T))
+            all_samples = []
+
+            # Evaluate each timestep
+            for t in tqdm(t_values):
+                # Generate noise for this batch
+                noise = torch.randn_like(x_0)
+
+                # Use scheduler to add noise at this timestep
+                timesteps = torch.ones(len(x_0), dtype=torch.long, device=device) * t
+                x_t = scheduler.add_noise(x_0, noise, timesteps)
+
+                # Compute KL divergence (need to implement this)
+                kl = compute_kl_divergence(x_0, x_t)
+                kl_divergences.append(kl)
+
+                # Store samples
+                all_samples.append(x_t.cpu().numpy())
+
+            # Convert to numpy arrays
+            kl_array = np.array(kl_divergences)
+
+            # Plot KL divergence
+            plt.figure(figsize=(10, 6))
+            plt.plot(t_values, kl_array)
+            plt.xlabel('Timestep (t)')
+            plt.ylabel('KL(P_actual || P_t)')
+            plt.title(f'KL Divergence over Time (T={T}, {schedule_type} schedule)')
+            plt.grid(True)
+            plt.savefig(os.path.join(combo_dir, 'kl_divergence.png'), dpi=300)
+            plt.close()
+
+            # Create 1D distribution heatmap
+            plot_timeseries_1d_pdf(
+                all_samples,
+                t_values,
+                title=f'1D Distribution Evolution (T={T}, {schedule_type} schedule)',
+                save_path=os.path.join(combo_dir, 'distribution_heatmap.png')
+            )
+
+            # Save data for reference
+            np.savez(
+                os.path.join(combo_dir, 'results.npz'),
+                kl_divergences=kl_array,
+                t_values=np.array(t_values),
+                beta_schedule = scheduler.betas.cpu().numpy()
+            )
+
+

@@ -1,6 +1,6 @@
 import torch
 from torch.nn import functional as F
-
+import numpy as np
 
 class NoiseScheduler():
     def __init__(
@@ -48,6 +48,15 @@ class NoiseScheduler():
             return torch.linspace(start, end, steps, dtype=torch.float32, device=self.device)
         elif type == "quadratic":
             return torch.linspace(start ** 0.5, end ** 0.5, steps, dtype=torch.float32, device=self.device) ** 2
+        elif type == "cosine":
+            # Implementation follows improved DDPM paper
+            steps_array = torch.linspace(0, steps, steps + 1, dtype=torch.float32, device=self.device)
+            alphas_cumprod = torch.cos(((steps_array / steps) + 0.008) / 1.008 * np.pi / 2) ** 2
+            alphas_cumprod = alphas_cumprod / alphas_cumprod[0]
+            betas = 1 - (alphas_cumprod[1:] / alphas_cumprod[:-1])
+            return torch.clip(betas, 0, 0.999)
+        else:
+            raise ValueError(f"Unknown beta schedule: {type}")
 
  
     def add_noise(self, x_start, x_noise, timesteps: torch.Tensor):

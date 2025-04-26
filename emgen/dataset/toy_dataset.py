@@ -89,3 +89,19 @@ def get_gt_dino_dataset():
     x = (x/54 - 1) * 4
     y = (y/48 - 1) * 4
     return np.stack((x, y), axis=1)
+
+
+def gaussian_mixture_1d(n=8000):
+    """Generate samples from a 1D Gaussian mixture distribution."""
+    rng = np.random.default_rng(42)
+
+    # Create mixture components
+    component1 = rng.normal(-2.0, 0.5, n // 3)
+    component2 = rng.normal(0.0, 0.5, n // 3)
+    component3 = rng.normal(2.0, 0.5, n - 2 * (n // 3))
+
+    # Combine components
+    mixture = np.concatenate([component1, component2, component3])
+    np.random.shuffle(mixture)
+
+    return torch.from_numpy(mixture.astype(np.float32)).view(-1, 1)
