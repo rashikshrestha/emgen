@@ -1,0 +1,10 @@
+generative_model:
+  diffusion_arch:
+    _target_: emgen.generative_model.diffusion.diffusion_model_arch.UNetArch
+    device: ${device}
+    emb_size: 128
+    time_emb: sinusoidal
+    in_channels: 3
+    base_channels: 64
+    num_down: 2
+    weights: null

@@ -1,10 +1,8 @@
 import hydra
 from hydra.utils import instantiate
 
-from emgen_config.config import EmGenConfig
-
-@hydra.main(version_base=None, config_name="config")
-def main(cfg: EmGenConfig) -> None:
+@hydra.main(version_base=None, config_path="../emgen_config", config_name="my_config")
+def main(cfg) -> None:
     emgen = instantiate(cfg)
     emgen.generative_model.train()
 
