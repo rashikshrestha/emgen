@@ -8,7 +8,7 @@ class EmGenConfig:
     experiment_name: str = "base"
     device: str = "cuda"
     generative_model: DiffusionModelConfig = DiffusionModelConfig()
-    
+
 cs = ConfigStore.instance()
 cs.store(name="config", node=EmGenConfig)
 # cs.store(group="db", name="mysql", node=MySQLConfig)

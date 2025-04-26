@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from emgen_config.train import TrainConfig
 from emgen_config.dataset.dataset import ToyDatasetConfig, MNISTDatasetConfig
 
-
 @dataclass
 class NoiseSchedulerConfig:
     _target_: str = "emgen.generative_model.diffusion.noise_scheduler.NoiseScheduler"
@@ -51,3 +50,5 @@ class DiffusionModelConfig:
     diffusion_arch: LinearArchConfig = LinearArchConfig() #TODO: add more type annotation here for unet archs
     dataset: ToyDatasetConfig = ToyDatasetConfig()
     train: TrainConfig = TrainConfig()
+
+
