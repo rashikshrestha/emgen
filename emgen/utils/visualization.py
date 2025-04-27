@@ -9,9 +9,12 @@ import cv2
 import subprocess
 from emgen.dataset.toy_dataset import get_gt_dino_dataset
 import torch
+from tqdm import tqdm
+
 from emgen.generative_model.diffusion.noise_scheduler import NoiseScheduler
 from emgen.dataset.toy_dataset import gaussian_mixture_1d
-from tqdm import tqdm
+from emgen.utils.metrics import compute_kl_divergence, compute_Nd_kl_divergence
+
 
 def plot_1d_pdf(data, model_samples=None, bins=100, title="Probability Density Function Comparison",
                 figsize=(10, 6), save_path=None):
@@ -357,44 +360,6 @@ def reshape_samples_for_grid(samples, aspect_ratio=(9, 16)):
 
     return reshaped_samples
 
-
-def compute_kl_divergence(p_actual, p_t):
-    """
-    Compute KL divergence between actual distribution and noise distribution at time t.
-
-    Args:
-        p_actual (torch.Tensor): Samples from the actual distribution
-        p_t (torch.Tensor): Samples from the noisy distribution at time t
-
-    Returns:
-        float: KL divergence value
-    """
-    from scipy.stats import entropy
-
-    # Convert to numpy arrays for scipy entropy function
-    p_actual_np = p_actual.detach().cpu().numpy()
-    p_t_np = p_t.detach().cpu().numpy()
-
-    # Estimate distributions using histograms
-    bins = 100
-    min_val = min(p_actual_np.min(), p_t_np.min())
-    max_val = max(p_actual_np.max(), p_t_np.max())
-
-    p_actual_hist, bin_edges = np.histogram(p_actual_np, bins=bins, range=(min_val, max_val), density=True)
-    p_t_hist, _ = np.histogram(p_t_np, bins=bins, range=(min_val, max_val), density=True)
-
-    # Add small constant to avoid division by zero
-    p_actual_hist += 1e-10
-    p_t_hist += 1e-10
-
-    # Normalize
-    p_actual_hist /= p_actual_hist.sum()
-    p_t_hist /= p_t_hist.sum()
-
-    # Compute KL divergence: KL(P_actual || P_t)
-    kl_div = entropy(p_actual_hist, p_t_hist)
-
-    return kl_div
 
 def visualize_kl_divergence(
         beta_schedule: str,
