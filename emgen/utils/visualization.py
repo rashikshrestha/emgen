@@ -185,6 +185,8 @@ def plot_timeseries_1d_pdf(diffusion_samples, timesteps,
         fig: Matplotlib figure object
     """
     # Convert to numpy arrays if they're tensors
+    nbins = 100
+    
     samples_np = []
     for s in diffusion_samples:
         if isinstance(s, torch.Tensor):
@@ -201,7 +203,7 @@ def plot_timeseries_1d_pdf(diffusion_samples, timesteps,
     range_padding = (max_val - min_val) * 0.1
     plot_range = (min_val - range_padding, max_val + range_padding)
 
-    bins = np.linspace(plot_range[0], plot_range[1], 100)
+    bins = np.linspace(plot_range[0], plot_range[1], nbins)
 
     # Create a 2D histogram-like array
     density_over_time = np.zeros((len(timesteps), len(bins) - 1))
@@ -213,6 +215,8 @@ def plot_timeseries_1d_pdf(diffusion_samples, timesteps,
 
     # Normalize for better visualization
     density_over_time = density_over_time / np.max(density_over_time)
+    density_over_time = density_over_time.T
+    
 
     # Create the heatmap
     im = ax.imshow(density_over_time,
@@ -223,11 +227,11 @@ def plot_timeseries_1d_pdf(diffusion_samples, timesteps,
 
     # Add colorbar
     cbar = fig.colorbar(im, ax=ax)
-    cbar.set_label('Normalized Density')
+    cbar.set_label('Normalized Proability Density')
 
     # Add labels and title
-    ax.set_xlabel('Sample Value')
-    ax.set_ylabel('Timestep')
+    ax.set_xlabel('Timesteps')
+    ax.set_ylabel('Data')
     ax.set_title(title)
 
     # Save figure if path is provided
