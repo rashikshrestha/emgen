@@ -10,10 +10,12 @@ class NoiseScheduler():
         beta_start=0.0001,
         beta_end=0.02,
         beta_schedule="linear",
-        diffusion_type="ddpm"
+        deterministic_sampling=False,
+        eta=0
     ):
         self.device = device
         self.num_timesteps = num_timesteps
+        self.deterministic_sampling = deterministic_sampling
 
         #! Betas and Alphas
         self.betas = self.get_beta_schedule(beta_schedule, beta_start, beta_end, num_timesteps)
