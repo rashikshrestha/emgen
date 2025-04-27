@@ -267,12 +267,13 @@ def plot_2d_intermediate_samples(samples, out_dir, no_of_samples_to_save, revers
         plt.close()
 
     #! Plot Particle Trajectory
+    no_of_trajectories = min(3, samples.shape[1]) # Plot first 3 trajectories
     plt.figure(figsize=(10,10))
-    for i in range(samples.shape[1]):
+    for i in range(no_of_trajectories):
         plt.plot(samples[:,i,0], samples[:,i,1], linewidth=2, zorder=1, alpha=0.7)
 
-    plt.scatter(samples[0, :, 0], samples[0, :, 1], c='red', marker='o', s=20, label='Initial Position', zorder=2)
-    plt.scatter(samples[-1, :, 0], samples[-1, :, 1], c='blue', marker='o', s=20, label='Final Position', zorder=2)
+    plt.scatter(samples[0, :no_of_trajectories, 0], samples[0, :no_of_trajectories, 1], c='red', marker='o', s=20, label='Initial Position', zorder=2)
+    plt.scatter(samples[-1, :no_of_trajectories, 0], samples[-1, :no_of_trajectories, 1], c='blue', marker='o', s=20, label='Final Position', zorder=2)
     
     gt_dino_data = get_gt_dino_dataset()
     plt.scatter(gt_dino_data[:,0], gt_dino_data[:,1], c='green', marker='o', s=1, label='GT Distribution', zorder=1)
