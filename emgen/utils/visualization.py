@@ -324,6 +324,28 @@ def plot_images_intermediate_samples(samples, out_dir, no_of_samples_to_save, re
     command += f"{out_dir}/intermediate_samples.gif"
     subprocess.run(command, shell=True, check=True)
     
+    
+def plot_kl_divergences(kl_divergences, Xs, output_file, title, x_label="Timestep", invert_x=False):
+    """
+    Plot KL divergence vs custom Xs (timesteps or epochs).
+
+    Args:
+        kl_divergences (array-like): Array of KL divergence values of shape (N,)
+        x_labels (array-like): Array of corresponding x-axis labels of shape (N,)
+        output_file (str): Path to save the plot image (e.g., 'kl_plot.png')
+        x_label_name (str): Label for the x-axis (default: "Step")
+    """
+    plt.figure(figsize=(8, 5))
+    plt.plot(Xs, kl_divergences, marker='o', linestyle='-', markersize=4)
+    plt.xlabel(x_label)
+    plt.ylabel('KL Divergence')
+    plt.title(title)
+    if invert_x: plt.gca().invert_xaxis()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(output_file, dpi=300)
+    plt.close()
+    
 
 def reshape_samples_for_grid(samples, aspect_ratio=(9, 16)):
     """
