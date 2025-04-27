@@ -28,8 +28,8 @@ def test_compute_Nd_kl_divergence():
     d = 2
     
     # 1. Generate identical distributions
-    p_samples = np.random.randn(10000, d)  # 10k samples, 3D
-    q_samples = p_samples.copy()
+    p_samples = torch.randn(10000, d)  # 10k samples, 3D
+    q_samples = p_samples.clone()
 
     kl_same = compute_Nd_kl_divergence(p_samples, q_samples)
     print(f"KL divergence (identical distributions): {kl_same:.6f}")
@@ -45,7 +45,7 @@ def test_compute_Nd_kl_divergence():
     print(f"KL divergence (scaled distributions): {kl_scaled:.6f}")
 
     # 4. Generate totally different distribution
-    q_samples_diff = np.random.randn(10000, d) + 5.0
+    q_samples_diff = torch.randn(10000, d) + 5.0
     kl_diff = compute_Nd_kl_divergence(p_samples, q_samples_diff)
     print(f"KL divergence (different distributions): {kl_diff:.6f}")
 

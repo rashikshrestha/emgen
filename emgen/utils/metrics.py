@@ -55,9 +55,14 @@ def compute_Nd_kl_divergence(p_samples, q_samples, bins=100):
     """
     assert p_samples.shape[1] == q_samples.shape[1], "Dimension mismatch."
 
-    d = p_samples.shape[1]
+    # Convert to numpy arrays if they are PyTorch tensors    
+    if isinstance(p_samples, torch.Tensor):
+        p_samples = p_samples.detach().cpu().numpy()
+    if isinstance(q_samples, torch.Tensor):
+        q_samples = q_samples.detach().cpu().numpy()
 
     # Determine histogram ranges
+    d = p_samples.shape[1]
     min_val = np.minimum(p_samples.min(axis=0), q_samples.min(axis=0))
     max_val = np.maximum(p_samples.max(axis=0), q_samples.max(axis=0))
     ranges = [(min_val[i], max_val[i]) for i in range(d)]
