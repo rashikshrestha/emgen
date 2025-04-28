@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from sklearn.decomposition import PCA
 from scipy.stats import entropy
 
 
@@ -87,3 +88,41 @@ def compute_Nd_kl_divergence(p_samples, q_samples, bins=100):
     kl = entropy(p_hist, q_hist)
 
     return kl
+
+
+def project_to_lower_dim(data, reference, out_dim=1):
+    """
+    Project all the dim dimensional data onto the first dout PCA component of 
+    the reference data.
+    Here, dout < din
+
+    Args:
+        data (np.ndarray): Array of shape (T, N, d)
+        reference (np.ndarray): Array of shape (N, d)
+
+    Returns:
+        np.ndarray: projected data (T, N, dout)
+        np.ndarray: projected referene (N, dout)
+    """
+    assert data.shape[-1] == reference.shape[-1], "Data and reference must have the same last dimension."
+    
+    T, N, din = data.shape
+    
+    assert din > out_dim, "Output dimension must be less than input dimension."
+    
+    if isinstance(data, torch.Tensor):
+        data = data.detach().cpu().numpy()
+    if isinstance(reference, torch.Tensor):
+        reference = reference.detach().cpu().numpy()
+
+    # Fit PCA on the reference
+    pca = PCA(n_components=out_dim)
+    ref_proj = pca.fit_transform(reference)  # (N, dout)
+
+    # Project each timestep data onto the same PCA component
+    data_proj = []
+    for t in range(T):
+        data_proj.append(pca.transform(data[t]))  # Project using the same PCA model
+    data_proj = np.array(data_proj)
+
+    return data_proj, ref_proj
