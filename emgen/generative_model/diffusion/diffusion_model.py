@@ -84,10 +84,16 @@ class DiffusionModel():
                 noisy = self.noise_scheduler.add_noise(batch, noise, timesteps)
                 
                 #! Use model to predict noise
-                noise_pred = self.diffusion_arch(noisy, timesteps)
+                model_pred = self.diffusion_arch(noisy, timesteps)
                 
                 #! Calculate Loss
-                loss = F.mse_loss(noise_pred, noise)
+                if self.noise_scheduler.pred_x0:
+                    # Loss for x0 prediction
+                    loss = F.mse_loss(model_pred, batch)
+                else:
+                    # Loss for noise prediction
+                    loss = F.mse_loss(model_pred, noise)
+            
                 loss.backward()
                 
                 #! Update Model 
@@ -166,7 +172,7 @@ class DiffusionModel():
         # sample = torch.as_tensor(sample, device=self.device, dtype=torch.float32)
         if get_intermediate_samples: intermediate_samples.append(sample.cpu().numpy()) # Initial noise
         #! List the timesteps in reverse order for sampling
-        timesteps = list(range(len(self.noise_scheduler)))[::-1]
+        timesteps = list(range(0,len(self.noise_scheduler),self.noise_scheduler.skip))[::-1]
         #! Reverse diffusion process
         for i, t in enumerate(timesteps):
             t = torch.from_numpy(np.repeat(t, self.train_config.eval_batch_size)).long().to(self.device)

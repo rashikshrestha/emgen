@@ -11,12 +11,16 @@ class NoiseScheduler():
         beta_end=0.02,
         beta_schedule="linear",
         deterministic_sampling=False,
-        eta=0
+        eta=0,
+        pred_x0=False,
+        skip=1
     ):
         self.device = device
         self.num_timesteps = num_timesteps
         self.deterministic_sampling = deterministic_sampling
         self.eta = eta
+        self.pred_x0 = pred_x0
+        self.skip = skip
 
         #! Betas and Alphas
         self.betas = self.get_beta_schedule(beta_schedule, beta_start, beta_end, num_timesteps)
@@ -104,17 +108,44 @@ class NoiseScheduler():
         Returns:
             x_tminus1 (torch.Tensor): Refined sample at timestep t-1
         """
-        x_0 = self.reconstruct_x0(x_t, eps_t_or_x_0, t)
-       
+        #! Check if eps_t_or_x_0 is noise or x_0
+        if self.pred_x0:
+            x_0 = eps_t_or_x_0
+            eps_t = (x_t - self.sqrt_alphas_cumprod[t] * x_0) / self.sqrt_one_minus_alphas_cumprod[t]
+        else:
+            eps_t = eps_t_or_x_0
+            x_0 = self.reconstruct_x0(x_t, eps_t, t)
+      
+        #! DDPM vs DDIM 
         if not self.deterministic_sampling: # DDPM
             x_tminus1 = self.q_posterior(x_0, x_t, t)
             variance = 0
             if t > 0:
-                noise = torch.randn_like(eps_t_or_x_0, device=self.device)
+                noise = torch.randn_like(x_t, device=self.device)
                 variance = (self.get_variance(t) ** 0.5) * noise
-
-            x_tminus1 = x_tminus1 + variance
+            x_tminus1 += variance
+            
         else: # DDIM
-            ...
+            if t > 0 and self.eta > 0:
+                frac = (1 - self.alphas_cumprod_prev[t]) / (1 - self.alphas_cumprod[t])
+                sigma_t = self.eta * torch.sqrt(frac * (1 - self.alphas_cumprod[t] / self.alphas_cumprod_prev[t]))
+            else:
+                sigma_t = torch.tensor(0.0, device=x_t.device)
+               
+            
+            if self.skip == 1:
+                dir_xt = torch.sqrt(1 - self.alphas_cumprod_prev[t] - sigma_t**2) * eps_t
+                x_tminus1 = torch.sqrt(self.alphas_cumprod_prev[t]) * x_0 + dir_xt
+            else:
+                idx = t-self.skip
+                if idx < 0:
+                    idx = 0
+                dir_xt = torch.sqrt(1 - self.alphas_cumprod[idx] - sigma_t**2) * eps_t
+                x_tminus1 = torch.sqrt(self.alphas_cumprod[idx]) * x_0 + dir_xt
+            
+            if t > 0 and self.eta > 0:
+                noise = torch.randn_like(x_t, device=self.device)
+                x_tminus1 += sigma_t * noise
+
 
         return x_tminus1
