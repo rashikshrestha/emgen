@@ -1,5 +1,6 @@
 import argparse
 import os
+import csv
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -131,9 +132,11 @@ class DiffusionModel():
                         torch.save(self.diffusion_arch.state_dict(), self.out_dir/f"train_epoch_{epoch:02d}/diffusion_arch.pth")
                         
                 all_generated_samples = np.concatenate(all_generated_samples, axis=1)
+                np.save(sample_out_dir/"all_generated_samples.npy", all_generated_samples)
                 all_generated_samples = torch.as_tensor(all_generated_samples)
                
                 all_kl = self.compute_kl(all_generated_samples, self.dataset.data) 
+                np.save(sample_out_dir/"all_kl.npy", all_kl)
                 
                 timesteps = list(range(all_kl.shape[0]))[::-1]
                 timesteps = np.array(timesteps)
@@ -157,6 +160,25 @@ class DiffusionModel():
                     figsize=(8, 5),
                     save_path=sample_out_dir/"pdf_1d_evolution.png"
                 )
+                
+
+        #! Write final results
+        new_row = [self.noise_scheduler.num_timesteps, 
+                    self.noise_scheduler.beta_schedule, 
+                    self.noise_scheduler.beta_start, 
+                    self.noise_scheduler.beta_end, 
+                    self.noise_scheduler.pred_x0,
+                    self.noise_scheduler.deterministic_sampling,
+                    self.noise_scheduler.eta,
+                    self.noise_scheduler.skip,
+                    all_kl[-1]
+                ]
+
+        with open('all_diffusion.csv', mode='a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(new_row)
+            
+        print("---------------------> Training complete. Results saved to all_diffusion.csv <---------------------")
 
  
     def sample(self, get_intermediate_samples=True):
