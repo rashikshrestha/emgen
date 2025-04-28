@@ -173,7 +173,7 @@ class DiffusionModel():
             # t = torch.from_numpy(np.repeat(t, 142)).long().to(self.device)
             with torch.no_grad():
                 residual = self.diffusion_arch(sample, t)
-            sample = self.noise_scheduler.step(residual, sample, t[0]) # Same timestep for all samples
+            sample = self.noise_scheduler.step(sample, residual, t[0]) # Same timestep for all samples
             if get_intermediate_samples: intermediate_samples.append(sample.cpu().numpy())  # Store intermediate frames for visualization
         if get_intermediate_samples: output['intermediate_samples'] = np.array(intermediate_samples)
         #! Final sample

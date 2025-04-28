@@ -16,6 +16,7 @@ class NoiseScheduler():
         self.device = device
         self.num_timesteps = num_timesteps
         self.deterministic_sampling = deterministic_sampling
+        self.eta = eta
 
         #! Betas and Alphas
         self.betas = self.get_beta_schedule(beta_schedule, beta_start, beta_end, num_timesteps)
@@ -94,20 +95,26 @@ class NoiseScheduler():
         return variance
 
 
-    def step(self, model_output, sample, timestep: int):
-        t = timestep
-        pred_original_sample = self.reconstruct_x0(sample, model_output, t)
-        pred_prev_sample = self.q_posterior(pred_original_sample, sample, t)
+    def step(self, x_t, eps_t_or_x_0, t: int):
+        """
+        Args:
+            x_t (torch.Tensor): Current sample at timestep t
+            eps_t_or_x_0 (torch.Tensor): Either the noise or the x_0 sample
+            t (int): Current timestep
+        Returns:
+            x_tminus1 (torch.Tensor): Refined sample at timestep t-1
+        """
+        x_0 = self.reconstruct_x0(x_t, eps_t_or_x_0, t)
+       
+        if not self.deterministic_sampling: # DDPM
+            x_tminus1 = self.q_posterior(x_0, x_t, t)
+            variance = 0
+            if t > 0:
+                noise = torch.randn_like(eps_t_or_x_0, device=self.device)
+                variance = (self.get_variance(t) ** 0.5) * noise
 
-        variance = 0
-        if t > 0:
-            noise = torch.randn_like(model_output, device=self.device)
-            variance = (self.get_variance(t) ** 0.5) * noise
+            x_tminus1 = x_tminus1 + variance
+        else: # DDIM
+            ...
 
-        pred_prev_sample = pred_prev_sample + variance
-
-        return pred_prev_sample
-
-
-torch.set_printoptions(precision=5, sci_mode=False)
-noise_scheduler = NoiseScheduler()
+        return x_tminus1
