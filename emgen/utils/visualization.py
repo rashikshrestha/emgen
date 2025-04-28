@@ -237,7 +237,7 @@ def plot_timeseries_1d_pdf(samples, timesteps,
         os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.',
                     exist_ok=True)
         plt.savefig(save_path, bbox_inches='tight', dpi=300)
-        print(f"Saved 1D timestep PDF plot to {save_path}")
+        # print(f"Saved 1D timestep PDF plot to {save_path}")
 
     plt.tight_layout()
     return fig
@@ -294,9 +294,19 @@ def plot_2d_intermediate_samples(samples, out_dir, no_of_samples_to_save, revers
     plt.close()
         
     #! Make GIF out of saved Images
-    command = f"convert -delay 10 -loop 0 {out_dir}/sample_*.png "
-    if reverse: command += "-reverse "
-    command += f"{out_dir}/intermediate_samples.gif"
+    image_list = sorted([os.path.join(out_dir, f) for f in os.listdir(out_dir) if f.startswith("sample_") and f.endswith(".png")])
+
+    command = f"convert "
+    command += f"-delay 300 {image_list[0]} "
+    for img in image_list:
+        command += f"-delay 10 {img} "
+    if reverse:
+        command += "-reverse "
+    command += f"-loop 0 {out_dir}/intermediate_samples.gif"
+
+    # command = f"convert -delay 10 -loop 1 {out_dir}/sample_*.png "
+    # if reverse: command += "-reverse "
+    # command += f"{out_dir}/intermediate_samples.gif"
     subprocess.run(command, shell=True, check=True)
 
   
