@@ -396,80 +396,83 @@ def compute_kl_divergence(p_actual, p_t):
     return kl_div
 
 def visualize_kl_divergence(
-        beta_schedules=['linear', 'cosine', 'quadratic'],
-        T_values=[10, 100, 1000, 10000],
-        n_samples=10000,
-        output_dir='./results/kl_divergence',
+        beta_schedule: str,
+        num_timesteps: int,
+        n_samples: int,
+        output_dir: str,
+        device: str = 'cuda'
 ):
+    """
+    Visualize KL divergence between actual distribution and noisy distribution at different timesteps.
+
+    Args:
+        beta_schedule (str): Type of beta schedule to use ('linear', 'cosine', 'quadratic')
+        num_timesteps (int): Number of diffusion timesteps
+        n_samples (int): Number of samples to generate
+        output_dir (str): Directory to save results
+        device (str): Device to use for computation
+    """
     os.makedirs(output_dir, exist_ok=True)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device(device)
 
     # Generate reference data
     x_0 = gaussian_mixture_1d(n=n_samples).to(device)
 
-    # Loop through hyperparameters
-    for T in T_values:
-        for schedule_type in beta_schedules:
-            combo_dir = os.path.join(output_dir, f"T{T}_{schedule_type}")
-            os.makedirs(combo_dir, exist_ok=True)
+    print(f"Evaluating T={num_timesteps}, schedule={beta_schedule}")
 
-            print(f"Evaluating T={T}, schedule={schedule_type}")
+    # Create scheduler with this configuration
+    scheduler = NoiseScheduler(
+        device=device,
+        num_timesteps=num_timesteps,
+        beta_schedule=beta_schedule
+    )
 
-            # Create scheduler with this configuration
-            scheduler = NoiseScheduler(
-                device=device,
-                num_timesteps=T,
-                beta_schedule=schedule_type
-            )
+    # Storage for results
+    kl_divergences = []
+    t_values = list(range(num_timesteps))
+    all_samples = []
 
-            # Storage for results
-            kl_divergences = []
-            t_values = list(range(T))
-            all_samples = []
+    # Evaluate each timestep
+    for t in tqdm(t_values):
+        # Generate noise for this batch
+        noise = torch.randn_like(x_0)
 
-            # Evaluate each timestep
-            for t in tqdm(t_values):
-                # Generate noise for this batch
-                noise = torch.randn_like(x_0)
+        # Use scheduler to add noise at this timestep
+        timesteps = torch.ones(len(x_0), dtype=torch.long, device=device) * t
+        x_t = scheduler.add_noise(x_0, noise, timesteps)
 
-                # Use scheduler to add noise at this timestep
-                timesteps = torch.ones(len(x_0), dtype=torch.long, device=device) * t
-                x_t = scheduler.add_noise(x_0, noise, timesteps)
+        # Compute KL divergence
+        kl = compute_kl_divergence(x_0, x_t)
+        kl_divergences.append(kl)
 
-                # Compute KL divergence (need to implement this)
-                kl = compute_kl_divergence(x_0, x_t)
-                kl_divergences.append(kl)
+        # Store samples
+        all_samples.append(x_t.cpu().numpy())
 
-                # Store samples
-                all_samples.append(x_t.cpu().numpy())
+    # Convert to numpy arrays
+    kl_array = np.array(kl_divergences)
 
-            # Convert to numpy arrays
-            kl_array = np.array(kl_divergences)
+    # Plot KL divergence
+    plt.figure(figsize=(10, 6))
+    plt.plot(t_values, kl_array)
+    plt.xlabel('Timestep (t)')
+    plt.ylabel('KL(P_actual || P_t)')
+    plt.title(f'KL Divergence over Time (T={num_timesteps}, {beta_schedule} schedule)')
+    plt.grid(True)
+    plt.savefig(os.path.join(output_dir, 'kl_divergence.png'), dpi=300)
+    plt.close()
 
-            # Plot KL divergence
-            plt.figure(figsize=(10, 6))
-            plt.plot(t_values, kl_array)
-            plt.xlabel('Timestep (t)')
-            plt.ylabel('KL(P_actual || P_t)')
-            plt.title(f'KL Divergence over Time (T={T}, {schedule_type} schedule)')
-            plt.grid(True)
-            plt.savefig(os.path.join(combo_dir, 'kl_divergence.png'), dpi=300)
-            plt.close()
+    # Create 1D distribution heatmap
+    plot_timeseries_1d_pdf(
+        all_samples,
+        t_values,
+        title=f'1D Distribution Evolution (T={num_timesteps}, {beta_schedule} schedule)',
+        save_path=os.path.join(output_dir, 'distribution_heatmap.png')
+    )
 
-            # Create 1D distribution heatmap
-            plot_timeseries_1d_pdf(
-                all_samples,
-                t_values,
-                title=f'1D Distribution Evolution (T={T}, {schedule_type} schedule)',
-                save_path=os.path.join(combo_dir, 'distribution_heatmap.png')
-            )
-
-            # Save data for reference
-            np.savez(
-                os.path.join(combo_dir, 'results.npz'),
-                kl_divergences=kl_array,
-                t_values=np.array(t_values),
-                beta_schedule = scheduler.betas.cpu().numpy()
-            )
-
-
+    # Save data for reference
+    np.savez(
+        os.path.join(output_dir, 'results.npz'),
+        kl_divergences=kl_array,
+        t_values=np.array(t_values),
+        beta_schedule=scheduler.betas.cpu().numpy()
+    )

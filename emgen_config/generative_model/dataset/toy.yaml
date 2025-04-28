@@ -1,0 +1,3 @@
+_target_: emgen.dataset.toy_dataset.ToyDataset
+name: dino
+num: 8000
