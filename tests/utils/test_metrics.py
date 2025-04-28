@@ -48,7 +48,37 @@ def test_compute_Nd_kl_divergence():
     q_samples_diff = torch.randn(10000, d) + 5.0
     kl_diff = compute_Nd_kl_divergence(p_samples, q_samples_diff)
     print(f"KL divergence (different distributions): {kl_diff:.6f}")
+    
 
+def test_project_to_lower_dim():
+    # Create dummy data
+    T = 5   # timesteps
+    N = 10  # number of points
+    d = 3   # input dimension (say 3D points)
 
-test_compute_kl_divergence()
-test_compute_Nd_kl_divergence()
+    data = np.random.randn(T, N, d)
+    reference = np.random.randn(N, d)
+
+    # Desired output dimension
+    out_dim = 2
+
+    # Call the function
+    data_proj, ref_proj = project_to_lower_dim(data, reference, out_dim=out_dim)
+
+    # --- Assertions ---
+    assert data_proj.shape == (T, N, out_dim), f"Expected data_proj shape {(T, N, out_dim)}, but got {data_proj.shape}"
+    assert ref_proj.shape == (N, out_dim), f"Expected ref_proj shape {(N, out_dim)}, but got {ref_proj.shape}"
+
+    # Check numerical types
+    assert isinstance(data_proj, np.ndarray), "data_proj must be a numpy array."
+    assert isinstance(ref_proj, np.ndarray), "ref_proj must be a numpy array."
+
+    # Print to confirm
+    print("Test passed successfully!")
+    print(f"Projected data shape: {data_proj.shape}")
+    print(f"Projected reference shape: {ref_proj.shape}")
+
+# Run the test
+# test_compute_kl_divergence()
+# test_compute_Nd_kl_divergence()
+# test_project_to_lower_dim()
