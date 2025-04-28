@@ -180,9 +180,6 @@ def plot_timeseries_1d_pdf(samples, timesteps,
         figsize (tuple): Figure size (width, height)
         save_path (str): Path to save the figure (optional)
         cmap (str): Colormap for the heatmap
-
-    Returns:
-        fig: Matplotlib figure object
     """
     nbins = 100
    
@@ -231,7 +228,9 @@ def plot_timeseries_1d_pdf(samples, timesteps,
     ax.set_xlabel('Timesteps')
     ax.set_ylabel('Data')
     ax.set_title(title)
-
+    
+    plt.tight_layout()
+    
     # Save figure if path is provided
     if save_path:
         os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.',
@@ -239,8 +238,7 @@ def plot_timeseries_1d_pdf(samples, timesteps,
         plt.savefig(save_path, bbox_inches='tight', dpi=300)
         # print(f"Saved 1D timestep PDF plot to {save_path}")
 
-    plt.tight_layout()
-    return fig
+    plt.close()
 
 
 def plot_2d_intermediate_samples(samples, out_dir, no_of_samples_to_save, reverse=True):
