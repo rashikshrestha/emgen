@@ -326,7 +326,7 @@ def plot_images_intermediate_samples(samples, out_dir, no_of_samples_to_save, re
     #! Plot Individual samples
     for i in indices:
         image_name = f"sample_{no_of_samples-i-1:04}.png" if reverse else f"sample_{i:04}.png"
-        cv2.imwrite(f"{out_dir}/{image_name}",  reshaped_samples[i].transpose(1, 2, 0) * 255)
+        cv2.imwrite(f"{out_dir}/{image_name}",  (np.clip(reshaped_samples[i].transpose(1, 2, 0),0,1) * 255).astype(np.uint8))
         
     #! Make GIF out of saved Images
     command = f"convert -delay 10 -loop 0 {out_dir}/sample_*.png "
