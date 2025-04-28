@@ -166,16 +166,16 @@ def plot_2d_pdf(data, model_samples=None, bins=50, cmap='viridis',
     return fig
 
 
-def plot_timeseries_1d_pdf(diffusion_samples, timesteps,
+def plot_timeseries_1d_pdf(samples, timesteps,
                            title="1D Distribution Evolution Over Time",
                            figsize=(10, 6), save_path=None, cmap='viridis'):
     """
     Visualize how a 1D distribution evolves during the diffusion process.
 
     Args:
-        diffusion_samples (list): List of tensors or arrays with shape [batch_size, 1]
-                                 for each timestep
-        timesteps (list): List of timestep values corresponding to the samples
+        samples (tensor|np.array): [T, N] where T is the number of timesteps and 
+            N is the number of samples per timestep
+        timesteps (tensor|np.array): List of timestep values corresponding to the samples
         title (str): Plot title
         figsize (tuple): Figure size (width, height)
         save_path (str): Path to save the figure (optional)
@@ -184,22 +184,20 @@ def plot_timeseries_1d_pdf(diffusion_samples, timesteps,
     Returns:
         fig: Matplotlib figure object
     """
-    # Convert to numpy arrays if they're tensors
     nbins = 100
+   
+    # Convert to numpy arrays if they're tensors
+    if isinstance(samples, torch.Tensor):
+        samples = samples.detach().cpu().numpy()
+    if isinstance(timesteps, torch.Tensor):
+        timesteps = timesteps.detach().cpu().numpy()
     
-    samples_np = []
-    for s in diffusion_samples:
-        if isinstance(s, torch.Tensor):
-            samples_np.append(s.detach().cpu().numpy())
-        else:
-            samples_np.append(s)
-
     # Create figure
     fig, ax = plt.subplots(figsize=figsize)
 
     # Define the bins for the histogram
-    min_val = min([np.min(s) for s in samples_np])
-    max_val = max([np.max(s) for s in samples_np])
+    min_val = min([np.min(s) for s in samples])
+    max_val = max([np.max(s) for s in samples])
     range_padding = (max_val - min_val) * 0.1
     plot_range = (min_val - range_padding, max_val + range_padding)
 
@@ -209,21 +207,21 @@ def plot_timeseries_1d_pdf(diffusion_samples, timesteps,
     density_over_time = np.zeros((len(timesteps), len(bins) - 1))
 
     # Fill the density array
-    for i, samples in enumerate(samples_np):
+    for i, samples in enumerate(samples):
         hist, _ = np.histogram(samples.flatten(), bins=bins, density=True)
         density_over_time[i, :] = hist
 
     # Normalize for better visualization
     density_over_time = density_over_time / np.max(density_over_time)
     density_over_time = density_over_time.T
-    
+   
 
     # Create the heatmap
     im = ax.imshow(density_over_time,
                    aspect='auto',
                    origin='lower',
                    cmap=cmap,
-                   extent=[bins[0], bins[-1], timesteps[0], timesteps[-1]])
+                   extent=[timesteps[0], timesteps[-1], bins[0], bins[-1]])
 
     # Add colorbar
     cbar = fig.colorbar(im, ax=ax)
