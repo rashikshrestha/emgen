@@ -1,6 +1,7 @@
 import argparse
 import os
 import csv
+import cv2
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -101,7 +102,8 @@ class DiffusionModel():
                 nn.utils.clip_grad_norm_(self.diffusion_arch.parameters(), 1.0)
                 self.optimizer.step()
                 self.optimizer.zero_grad()
-               
+                
+              
             #! If this is 'save_images' epoch or the last epoch
             if epoch % self.train_config.save_images_step == 0 or epoch == self.train_config.num_epochs - 1:
                 print("generating samples...")
@@ -122,6 +124,7 @@ class DiffusionModel():
                                 sample_out_dir, 
                                 self.train_config.no_of_diff_samples_to_save,     
                             )
+                            break # dont generate all the data samples if image data
                         # If 2D Data
                         elif len(sample_out['intermediate_samples'].shape) == 3:
                             plot_2d_intermediate_samples(
@@ -130,6 +133,11 @@ class DiffusionModel():
                                 self.train_config.no_of_diff_samples_to_save,     
                             )
                         torch.save(self.diffusion_arch.state_dict(), self.out_dir/f"train_epoch_{epoch:02d}/diffusion_arch.pth")
+                    
+                
+                # If Image Data
+                if len(sample_out['intermediate_samples'].shape) == 5:
+                    continue
                         
                 all_generated_samples = np.concatenate(all_generated_samples, axis=1)
                 np.save(sample_out_dir/"all_generated_samples.npy", all_generated_samples)
@@ -161,24 +169,45 @@ class DiffusionModel():
                     save_path=sample_out_dir/"pdf_1d_evolution.png"
                 )
                 
-
-        #! Write final results
-        new_row = [self.noise_scheduler.num_timesteps, 
-                    self.noise_scheduler.beta_schedule, 
-                    self.noise_scheduler.beta_start, 
-                    self.noise_scheduler.beta_end, 
-                    self.noise_scheduler.pred_x0,
-                    self.noise_scheduler.deterministic_sampling,
-                    self.noise_scheduler.eta,
-                    self.noise_scheduler.skip,
-                    all_kl[-1]
-                ]
-
-        with open('all_diffusion.csv', mode='a', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(new_row)
+                        #! If this is 'save_images' epoch or the last epoch
             
-        print("---------------------> Training complete. Results saved to all_diffusion.csv <---------------------")
+        #! If image data: write data to disk
+        if len(sample_out['intermediate_samples'].shape) == 5:
+            print("\nGenerating 1000 image samples...")
+            samples_out_dir = self.out_dir/f"train_epoch_{epoch:02d}"/"samples"
+            samples_out_dir.mkdir(parents=True, exist_ok=True)
+            
+            no_of_eval_batches = 1024//self.train_config.eval_batch_size
+            for eb in tqdm(range(no_of_eval_batches)):
+                sample_out = self.sample()['generated_sample']
+                sample_out = np.clip(sample_out, 0, 1)
+                sample_out = (sample_out* 255).astype(np.uint8)
+                # print(sample_out.shape, sample_out.min(), sample_out.max(), sample_out.dtype, type(sample_out))
+                
+                for i, img in enumerate(sample_out):
+                    cv2.imwrite(
+                        samples_out_dir/f"{eb:02d}_{i:02d}.png",  
+                        img.transpose(1, 2, 0)
+                    )
+
+        #! If 2D data: write final results
+        else:
+            new_row = [self.noise_scheduler.num_timesteps, 
+                        self.noise_scheduler.beta_schedule, 
+                        self.noise_scheduler.beta_start, 
+                        self.noise_scheduler.beta_end, 
+                        self.noise_scheduler.pred_x0,
+                        self.noise_scheduler.deterministic_sampling,
+                        self.noise_scheduler.eta,
+                        self.noise_scheduler.skip,
+                        all_kl[-1]
+                    ]
+
+            with open('all_diffusion3.csv', mode='a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow(new_row)
+            
+        print("---------------------> Training complete <---------------------")
 
  
     def sample(self, get_intermediate_samples=True):
