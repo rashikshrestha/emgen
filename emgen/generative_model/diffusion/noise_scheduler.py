@@ -17,6 +17,9 @@ class NoiseScheduler():
     ):
         self.device = device
         self.num_timesteps = num_timesteps
+        self.beta_start = beta_start
+        self.beta_end = beta_end
+        self.beta_schedule = beta_schedule
         self.deterministic_sampling = deterministic_sampling
         self.eta = eta
         self.pred_x0 = pred_x0
