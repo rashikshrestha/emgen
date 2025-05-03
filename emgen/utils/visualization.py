@@ -9,9 +9,12 @@ import cv2
 import subprocess
 from emgen.dataset.toy_dataset import get_gt_dino_dataset
 import torch
+from tqdm import tqdm
+
 from emgen.generative_model.diffusion.noise_scheduler import NoiseScheduler
 from emgen.dataset.toy_dataset import gaussian_mixture_1d
-from tqdm import tqdm
+from emgen.utils.metrics import compute_kl_divergence, compute_Nd_kl_divergence
+
 
 def plot_1d_pdf(data, model_samples=None, bins=100, title="Probability Density Function Comparison",
                 figsize=(10, 6), save_path=None):
@@ -163,79 +166,79 @@ def plot_2d_pdf(data, model_samples=None, bins=50, cmap='viridis',
     return fig
 
 
-def plot_timeseries_1d_pdf(diffusion_samples, timesteps,
+def plot_timeseries_1d_pdf(samples, timesteps,
                            title="1D Distribution Evolution Over Time",
                            figsize=(10, 6), save_path=None, cmap='viridis'):
     """
     Visualize how a 1D distribution evolves during the diffusion process.
 
     Args:
-        diffusion_samples (list): List of tensors or arrays with shape [batch_size, 1]
-                                 for each timestep
-        timesteps (list): List of timestep values corresponding to the samples
+        samples (tensor|np.array): [T, N] where T is the number of timesteps and 
+            N is the number of samples per timestep
+        timesteps (tensor|np.array): List of timestep values corresponding to the samples
         title (str): Plot title
         figsize (tuple): Figure size (width, height)
         save_path (str): Path to save the figure (optional)
         cmap (str): Colormap for the heatmap
-
-    Returns:
-        fig: Matplotlib figure object
     """
+    nbins = 100
+   
     # Convert to numpy arrays if they're tensors
-    samples_np = []
-    for s in diffusion_samples:
-        if isinstance(s, torch.Tensor):
-            samples_np.append(s.detach().cpu().numpy())
-        else:
-            samples_np.append(s)
-
+    if isinstance(samples, torch.Tensor):
+        samples = samples.detach().cpu().numpy()
+    if isinstance(timesteps, torch.Tensor):
+        timesteps = timesteps.detach().cpu().numpy()
+    
     # Create figure
     fig, ax = plt.subplots(figsize=figsize)
 
     # Define the bins for the histogram
-    min_val = min([np.min(s) for s in samples_np])
-    max_val = max([np.max(s) for s in samples_np])
+    min_val = min([np.min(s) for s in samples])
+    max_val = max([np.max(s) for s in samples])
     range_padding = (max_val - min_val) * 0.1
     plot_range = (min_val - range_padding, max_val + range_padding)
 
-    bins = np.linspace(plot_range[0], plot_range[1], 100)
+    bins = np.linspace(plot_range[0], plot_range[1], nbins)
 
     # Create a 2D histogram-like array
     density_over_time = np.zeros((len(timesteps), len(bins) - 1))
 
     # Fill the density array
-    for i, samples in enumerate(samples_np):
+    for i, samples in enumerate(samples):
         hist, _ = np.histogram(samples.flatten(), bins=bins, density=True)
         density_over_time[i, :] = hist
 
     # Normalize for better visualization
     density_over_time = density_over_time / np.max(density_over_time)
+    density_over_time = density_over_time.T
+   
 
     # Create the heatmap
     im = ax.imshow(density_over_time,
                    aspect='auto',
                    origin='lower',
                    cmap=cmap,
-                   extent=[bins[0], bins[-1], timesteps[0], timesteps[-1]])
+                   extent=[timesteps[0], timesteps[-1], bins[0], bins[-1]])
 
     # Add colorbar
     cbar = fig.colorbar(im, ax=ax)
-    cbar.set_label('Normalized Density')
+    cbar.set_label('Normalized Proability Density')
 
     # Add labels and title
-    ax.set_xlabel('Sample Value')
-    ax.set_ylabel('Timestep')
+    ax.set_xlabel('Timesteps')
+    ax.set_ylabel('Data')
     ax.set_title(title)
-
+    
+    plt.tight_layout()
+    
     # Save figure if path is provided
     if save_path:
         os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.',
                     exist_ok=True)
         plt.savefig(save_path, bbox_inches='tight', dpi=300)
-        print(f"Saved 1D timestep PDF plot to {save_path}")
+        # print(f"Saved 1D timestep PDF plot to {save_path}")
 
-    plt.tight_layout()
-    return fig
+    plt.close()
 
 
 def plot_2d_intermediate_samples(samples, out_dir, no_of_samples_to_save, reverse=True):
@@ -267,12 +270,13 @@ def plot_2d_intermediate_samples(samples, out_dir, no_of_samples_to_save, revers
         plt.close()
 
     #! Plot Particle Trajectory
+    no_of_trajectories = min(3, samples.shape[1]) # Plot first 3 trajectories
     plt.figure(figsize=(10,10))
-    for i in range(samples.shape[1]):
+    for i in range(no_of_trajectories):
         plt.plot(samples[:,i,0], samples[:,i,1], linewidth=2, zorder=1, alpha=0.7)
 
-    plt.scatter(samples[0, :, 0], samples[0, :, 1], c='red', marker='o', s=20, label='Initial Position', zorder=2)
-    plt.scatter(samples[-1, :, 0], samples[-1, :, 1], c='blue', marker='o', s=20, label='Final Position', zorder=2)
+    plt.scatter(samples[0, :no_of_trajectories, 0], samples[0, :no_of_trajectories, 1], c='red', marker='o', s=20, label='Initial Position', zorder=2)
+    plt.scatter(samples[-1, :no_of_trajectories, 0], samples[-1, :no_of_trajectories, 1], c='blue', marker='o', s=20, label='Final Position', zorder=2)
     
     gt_dino_data = get_gt_dino_dataset()
     plt.scatter(gt_dino_data[:,0], gt_dino_data[:,1], c='green', marker='o', s=1, label='GT Distribution', zorder=1)
@@ -288,9 +292,19 @@ def plot_2d_intermediate_samples(samples, out_dir, no_of_samples_to_save, revers
     plt.close()
         
     #! Make GIF out of saved Images
-    command = f"convert -delay 10 -loop 0 {out_dir}/sample_*.png "
-    if reverse: command += "-reverse "
-    command += f"{out_dir}/intermediate_samples.gif"
+    image_list = sorted([os.path.join(out_dir, f) for f in os.listdir(out_dir) if f.startswith("sample_") and f.endswith(".png")])
+
+    command = f"convert "
+    command += f"-delay 300 {image_list[0]} "
+    for img in image_list:
+        command += f"-delay 10 {img} "
+    if reverse:
+        command += "-reverse "
+    command += f"-loop 0 {out_dir}/intermediate_samples.gif"
+
+    # command = f"convert -delay 10 -loop 1 {out_dir}/sample_*.png "
+    # if reverse: command += "-reverse "
+    # command += f"{out_dir}/intermediate_samples.gif"
     subprocess.run(command, shell=True, check=True)
 
   
@@ -312,13 +326,35 @@ def plot_images_intermediate_samples(samples, out_dir, no_of_samples_to_save, re
     #! Plot Individual samples
     for i in indices:
         image_name = f"sample_{no_of_samples-i-1:04}.png" if reverse else f"sample_{i:04}.png"
-        cv2.imwrite(f"{out_dir}/{image_name}",  reshaped_samples[i].transpose(1, 2, 0) * 255)
+        cv2.imwrite(f"{out_dir}/{image_name}",  (np.clip(reshaped_samples[i].transpose(1, 2, 0),0,1) * 255).astype(np.uint8))
         
     #! Make GIF out of saved Images
     command = f"convert -delay 10 -loop 0 {out_dir}/sample_*.png "
     if reverse: command += "-reverse "
     command += f"{out_dir}/intermediate_samples.gif"
     subprocess.run(command, shell=True, check=True)
+    
+    
+def plot_kl_divergences(kl_divergences, Xs, output_file, title, x_label="Timestep", invert_x=False):
+    """
+    Plot KL divergence vs custom Xs (timesteps or epochs).
+
+    Args:
+        kl_divergences (array-like): Array of KL divergence values of shape (N,)
+        x_labels (array-like): Array of corresponding x-axis labels of shape (N,)
+        output_file (str): Path to save the plot image (e.g., 'kl_plot.png')
+        x_label_name (str): Label for the x-axis (default: "Step")
+    """
+    plt.figure(figsize=(8, 5))
+    plt.plot(Xs, kl_divergences, marker='o', linestyle='-', markersize=4)
+    plt.xlabel(x_label)
+    plt.ylabel('KL Divergence')
+    plt.title(title)
+    if invert_x: plt.gca().invert_xaxis()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(output_file, dpi=300)
+    plt.close()
     
 
 def reshape_samples_for_grid(samples, aspect_ratio=(9, 16)):
@@ -356,44 +392,6 @@ def reshape_samples_for_grid(samples, aspect_ratio=(9, 16)):
 
     return reshaped_samples
 
-
-def compute_kl_divergence(p_actual, p_t):
-    """
-    Compute KL divergence between actual distribution and noise distribution at time t.
-
-    Args:
-        p_actual (torch.Tensor): Samples from the actual distribution
-        p_t (torch.Tensor): Samples from the noisy distribution at time t
-
-    Returns:
-        float: KL divergence value
-    """
-    from scipy.stats import entropy
-
-    # Convert to numpy arrays for scipy entropy function
-    p_actual_np = p_actual.detach().cpu().numpy()
-    p_t_np = p_t.detach().cpu().numpy()
-
-    # Estimate distributions using histograms
-    bins = 100
-    min_val = min(p_actual_np.min(), p_t_np.min())
-    max_val = max(p_actual_np.max(), p_t_np.max())
-
-    p_actual_hist, bin_edges = np.histogram(p_actual_np, bins=bins, range=(min_val, max_val), density=True)
-    p_t_hist, _ = np.histogram(p_t_np, bins=bins, range=(min_val, max_val), density=True)
-
-    # Add small constant to avoid division by zero
-    p_actual_hist += 1e-10
-    p_t_hist += 1e-10
-
-    # Normalize
-    p_actual_hist /= p_actual_hist.sum()
-    p_t_hist /= p_t_hist.sum()
-
-    # Compute KL divergence: KL(P_actual || P_t)
-    kl_div = entropy(p_actual_hist, p_t_hist)
-
-    return kl_div
 
 def visualize_kl_divergence(
         beta_schedule: str,

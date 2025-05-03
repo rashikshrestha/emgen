@@ -10,10 +10,20 @@ class NoiseScheduler():
         beta_start=0.0001,
         beta_end=0.02,
         beta_schedule="linear",
-        diffusion_type="ddpm"
+        deterministic_sampling=False,
+        eta=0,
+        pred_x0=False,
+        skip=1
     ):
         self.device = device
         self.num_timesteps = num_timesteps
+        self.beta_start = beta_start
+        self.beta_end = beta_end
+        self.beta_schedule = beta_schedule
+        self.deterministic_sampling = deterministic_sampling
+        self.eta = eta
+        self.pred_x0 = pred_x0
+        self.skip = skip
 
         #! Betas and Alphas
         self.betas = self.get_beta_schedule(beta_schedule, beta_start, beta_end, num_timesteps)
@@ -92,20 +102,53 @@ class NoiseScheduler():
         return variance
 
 
-    def step(self, model_output, sample, timestep: int):
-        t = timestep
-        pred_original_sample = self.reconstruct_x0(sample, model_output, t)
-        pred_prev_sample = self.q_posterior(pred_original_sample, sample, t)
+    def step(self, x_t, eps_t_or_x_0, t: int):
+        """
+        Args:
+            x_t (torch.Tensor): Current sample at timestep t
+            eps_t_or_x_0 (torch.Tensor): Either the noise or the x_0 sample
+            t (int): Current timestep
+        Returns:
+            x_tminus1 (torch.Tensor): Refined sample at timestep t-1
+        """
+        #! Check if eps_t_or_x_0 is noise or x_0
+        if self.pred_x0:
+            x_0 = eps_t_or_x_0
+            eps_t = (x_t - self.sqrt_alphas_cumprod[t] * x_0) / self.sqrt_one_minus_alphas_cumprod[t]
+        else:
+            eps_t = eps_t_or_x_0
+            x_0 = self.reconstruct_x0(x_t, eps_t, t)
+      
+        #! DDPM vs DDIM 
+        if not self.deterministic_sampling: # DDPM
+            x_tminus1 = self.q_posterior(x_0, x_t, t)
+            variance = 0
+            if t > 0:
+                noise = torch.randn_like(x_t, device=self.device)
+                variance = (self.get_variance(t) ** 0.5) * noise
+            x_tminus1 += variance
+            
+        else: # DDIM
+            if t > 0 and self.eta > 0:
+                frac = (1 - self.alphas_cumprod_prev[t]) / (1 - self.alphas_cumprod[t])
+                sigma_t = self.eta * torch.sqrt(frac * (1 - self.alphas_cumprod[t] / self.alphas_cumprod_prev[t]))
+            else:
+                sigma_t = torch.tensor(0.0, device=x_t.device)
+               
+            
+            if self.skip == 1:
+                dir_xt = torch.sqrt(1 - self.alphas_cumprod_prev[t] - sigma_t**2) * eps_t
+                x_tminus1 = torch.sqrt(self.alphas_cumprod_prev[t]) * x_0 + dir_xt
+            else:
+                idx = t-self.skip
+                if idx < 0:
+                    idx = 0
+                dir_xt = torch.sqrt(1 - self.alphas_cumprod[idx] - sigma_t**2) * eps_t
+                x_tminus1 = torch.sqrt(self.alphas_cumprod[idx]) * x_0 + dir_xt
+            
+            if t > 0 and self.eta > 0:
+                noise = torch.randn_like(x_t, device=self.device)
+                x_tminus1 += sigma_t * noise
 
-        variance = 0
-        if t > 0:
-            noise = torch.randn_like(model_output, device=self.device)
-            variance = (self.get_variance(t) ** 0.5) * noise
 
-        pred_prev_sample = pred_prev_sample + variance
-
-        return pred_prev_sample
-
-
-torch.set_printoptions(precision=5, sci_mode=False)
-noise_scheduler = NoiseScheduler()
+        return x_tminus1

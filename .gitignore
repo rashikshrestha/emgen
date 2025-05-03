@@ -4,6 +4,7 @@
 *.egg-info/
 *.egg
 outputs/
+multirun/
 *.pyc
 **/__pycache__/
 **/data/
